@@ -941,10 +941,16 @@ app.post('/api/leaderboard/sync', (req, res) => {
   // Merge with staff overrides if present
   const overrides = loadOverrides();
   const overrideForUser = overrides[cleanCall];
+  const isDevAccount = cleanCall === 'rudrapratapj.0562@gmail.com' || cleanCall === 'rudrapratapf.0562@gmail.com';
+  const hasOverrideActive = Boolean(
+    hasStageOverride ||
+    (overrideForUser?.stages && Object.keys(overrideForUser.stages).length > 0)
+  );
   const isExcluded = Boolean(
     excludeFromLeaderboard ||
     overrideForUser?.excludeFromLeaderboard ||
-    cleanCall === 'rudrapratapf.0562@gmail.com' ||
+    isDevAccount ||
+    hasOverrideActive ||
     isStaff
   );
 
@@ -956,7 +962,7 @@ app.post('/api/leaderboard/sync', (req, res) => {
     stagesCompleted: Number(stagesCompleted) || 0,
     lastProgress: lastProgress || new Date().toISOString(),
     excludeFromLeaderboard: isExcluded,
-    hasStageOverride: Boolean(hasStageOverride || (overrideForUser?.stages && Object.keys(overrideForUser.stages).length > 0)),
+    hasStageOverride: hasOverrideActive,
     teamName: teamName ? String(teamName).trim() : null,
     isStaff: Boolean(isStaff),
     updatedAt: new Date().toISOString(),
@@ -1003,7 +1009,9 @@ app.get('/api/leaderboard', async (req, res) => {
         return (
           overrides[mc]?.excludeFromLeaderboard ||
           scores[mc]?.excludeFromLeaderboard ||
+          scores[mc]?.hasStageOverride ||
           scores[mc]?.isStaff ||
+          mc === 'rudrapratapj.0562@gmail.com' ||
           mc === 'rudrapratapf.0562@gmail.com'
         );
       });
@@ -1064,12 +1072,14 @@ app.get('/api/leaderboard', async (req, res) => {
         if (inActiveTeam) continue;
       }
 
-      // Strict exclusion check
+      // Strict exclusion check: exclude testing accounts, stage overrides, staff, and developer accounts
       if (
         pScore.excludeFromLeaderboard ||
         pScore.hasStageOverride ||
         pScore.isStaff ||
         overrides[key]?.excludeFromLeaderboard ||
+        overrides[key]?.stages && Object.keys(overrides[key].stages).length > 0 ||
+        key === 'rudrapratapj.0562@gmail.com' ||
         key === 'rudrapratapf.0562@gmail.com'
       ) {
         continue;

@@ -289,3 +289,252 @@ export const CLASSIFIED_CASE_DOCUMENTS: CaseDocumentItem[] = [
   },
 ];
 
+export const ARCHIVAL_FACSIMILE_DOCUMENTS: CaseDocumentItem[] = [
+  {
+    id: 'arch-plate-01',
+    documentNumber: 1,
+    caseNumber: 'ARCH-SFPD-1011',
+    title: 'ARCHIVAL NEGATIVE // PLATE 01: PRESIDIO HEIGHTS TAXI SCENE & TORN SHIRT',
+    shortTitle: 'Plate 01: Presidio Heights Specimen Negative',
+    victimName: 'Presidio Heights 16mm Crime Scene Facsimile (Paul Stine)',
+    dateOfIncident: '11 OCT 1969 / ARCHIVED 12 OCT 1969',
+    location: 'WASHINGTON & CHERRY STS, PRESIDIO HEIGHTS, SF',
+    reportedBy: 'FORENSIC IMAGING LABORATORY // NEGATIVE # 1127-69',
+    imagePath: '/assets/aistudio/WhatsApp_Image_2026-10-29_at_7.00.46_PM__2__20ef5232.jpeg',
+    isDraftOrCorrupted: false,
+    agencyHeader: {
+      dept: 'CITY AND COUNTY OF SAN FRANCISCO • FORENSIC PHOTOGRAPHIC DIVISION',
+      subDept: 'CRIME SCENE FACSIMILE ARCHIVE // 850 BRYANT STREET',
+      addressLines: ['PLATE NO.: ARCH-01', 'NEGATIVE ID: 1127-69', 'EXPOSURE: OPTICAL 16MM'],
+    },
+    stamps: ['AUTHENTIC ARCHIVAL FACSIMILE', 'EVIDENCE DIVISION', 'DO NOT DUPLICATE'],
+    summary:
+      'Archival 16mm optical negative print recovered from SFPD Homicide files. Documents taxi cab interior, close-range entry impact marks, and the catalogued missing swatch from victim Paul Lee Stine\'s bloodied shirt tail subsequently received by the San Francisco Chronicle.',
+    victimProfiles: [
+      'SPECIMEN RECORD: Paul Lee Stine (Deceased). 16mm optical camera negative registered under master chain-of-custody archive.',
+    ],
+    ballisticsAndPhysicalEvidence: [
+      '1. 16mm forensic negative plate showing vehicle cab angle at Washington and Cherry Streets.',
+      '2. Physical swatch margins recorded against Department evidence grid.',
+      '3. Comparison negative cross-indexed with suspect sketch composite.',
+    ],
+    caseStatus:
+      'STATUS: ARCHIVAL HOLD. Negative plate deposited in County Archives Sub-Basement Bay 17. Digitally scanned and declassified for Case TLS-0017 review.',
+    investigatorSignature: {
+      signatureText: 'J. R. Caldwell',
+      leadTitle: 'J. R. CALDWELL, FORENSIC IMAGING LABORATORY',
+      signedDate: '10/12/1969',
+      isHandwritten: true,
+    },
+    footerNotice: 'AUTHENTIC ARCHIVAL PLATE — CONFIDENTIAL FORENSIC PROPERTY',
+  },
+  {
+    id: 'arch-plate-02',
+    documentNumber: 2,
+    caseNumber: 'ARCH-SOL-1220-DRAFT',
+    title: 'ARCHIVAL TELETYPE // PLATE 02: SOLANO UNREVISED DRAFT TRANSMISSION (CORRUPTED)',
+    shortTitle: 'Plate 02: Solano Unrevised Teletype Draft',
+    victimName: 'Lake Herman Road Turnout Collision Record (Faraday & Jensen)',
+    dateOfIncident: '20 DEC 1968 / TELETYPE LOG 21:10',
+    location: "Lake Herman Road Lover's Lane Turnout, Benicia",
+    reportedBy: 'SOLANO SHERIFF TELETYPE UNIT // DRAFT DISPATCH',
+    imagePath: '/assets/aistudio/WhatsApp_Image_2026-10-29_at_7.00.46_PM__1__dc8203ea.jpeg',
+    isDraftOrCorrupted: true,
+    agencyHeader: {
+      dept: 'STATE OF CALIFORNIA DEPARTMENT OF JUSTICE',
+      subDept: 'SOLANO TELETYPE ARCHIVES // RAW TELETYPE REEL',
+      addressLines: ['REEL: TE-68-12', 'CIRCUIT: SFO-BENICIA-DIRECT', 'FLAG: CORRUPTED TRANSMISSION'],
+    },
+    stamps: ['CONFIDENTIAL', 'TELETYPE GLITCH RECORD', 'RECORDS & EVIDENCE CONTROL'],
+    summary:
+      'Original physical teletype dispatch ribbon showing character jitter and syntax collisions from the initial 1968 teletype line. Words and sentence fragments exhibit garbled optical tracking preserved verbatim for comparison with the finalized standard dossier.',
+    victimProfiles: [
+      'PRIMARY EVIDENCE RECORD: Lake Herman Road double homicide initial wire transmission with uncorrected mechanical collisions.',
+    ],
+    ballisticsAndPhysicalEvidence: [
+      '1. Typewriter ribbon striking anomalies preserved on yellowed teleprinter paper.',
+      '2. Missing word gaps coinciding with signal pulse drops on the Solano circuit.',
+      '3. Comparison markings noting divergence from the formal Department summary (Plate 04).',
+    ],
+    caseStatus:
+      'STATUS: UNREVISED HISTORIC WIRE. Catalogued as corrupted early field draft. Preserved to verify teletype alteration claims.',
+    investigatorSignature: {
+      signatureText: 'Sgt. R. Halstead',
+      leadTitle: 'SGT. R. HALSTEAD, SOLANO COMMUNICATIONS',
+      signedDate: '12/21/1968',
+      isHandwritten: false,
+    },
+    footerNotice: 'UNREVISED TELETYPE SPECIMEN — DO NOT REVISE OR DESTROY',
+  },
+  {
+    id: 'arch-plate-03',
+    documentNumber: 3,
+    caseNumber: 'ARCH-NAP-0927',
+    title: 'ARCHIVAL NEGATIVE // PLATE 03: LAKE BERRYESSA SHORELINE & VEHICLE DOOR GRAFFITI',
+    shortTitle: 'Plate 03: Lake Berryessa Shoreline Facsimile',
+    victimName: 'Twin Oak Ridge Crime Scene Negative (Shepard & Hartnell)',
+    dateOfIncident: '27 SEP 1969 / ARCHIVED 28 SEP 1969',
+    location: 'TWIN OAK RIDGE, LAKE BERRYESSA, NAPA COUNTY, CA',
+    reportedBy: 'NAPA COUNTY SHERIFF INVESTIGATION UNIT',
+    imagePath: '/assets/aistudio/WhatsApp_Image_2026-10-29_at_7.00.46_PM_82bcbfb0.jpeg',
+    isDraftOrCorrupted: false,
+    agencyHeader: {
+      dept: "NAPA COUNTY SHERIFF'S OFFICE • INVESTIGATION DIVISION",
+      subDept: 'PHYSICAL EVIDENCE & FORENSIC PHOTOGRAPHIC UNIT',
+      addressLines: ['CASE: NAP-1969-0927', 'NEGATIVE FILE: 1026-69', 'LOCATION: LAKE BERRYESSA'],
+    },
+    stamps: ['ARCHIVAL NEGATIVE SPECIMEN', 'CASE FILE - ACTIVE', 'DO NOT DUPLICATE'],
+    summary:
+      'Archival photographic negative from Lake Berryessa. Details the lakeside path, mud footprints matching Wing Walker boot size 10.5, and photographic documentation of the black felt-tip pen inscriptions left on the driver door of Bryan Hartnell\'s Karmann Ghia.',
+    victimProfiles: [
+      'FIELD SPECIMEN: Cecelia Shepard and Bryan Calvin Hartnell crime scene photographic plate.',
+    ],
+    ballisticsAndPhysicalEvidence: [
+      '1. Photographic record of car door inscription: "Vallejo 12-20-68 / 7-4-69 / Sept 27-69 - 6:30 - by knife" and crosshair glyph.',
+      '2. Negative telemetry documenting shoreline soil impression depth.',
+      '3. Clothesline ligature photographs catalogued in evidence repository.',
+    ],
+    caseStatus:
+      'STATUS: ARCHIVAL HOLD. Deposited in Napa County Evidence Repository. Reproduced under official investigation protocol.',
+    investigatorSignature: {
+      signatureText: '_R. Lands_',
+      leadTitle: 'DEPUTY R. LANDS, LEAD INVESTIGATOR',
+      signedDate: '09/28/1969',
+      isHandwritten: true,
+    },
+    footerNotice: 'OFFICIAL EVIDENCE NEGATIVE // STRICT CHAIN OF CUSTODY',
+  },
+  {
+    id: 'arch-plate-04',
+    documentNumber: 4,
+    caseNumber: 'ARCH-SOL-1220-STD',
+    title: 'ARCHIVAL RECORD // PLATE 04: SOLANO SHERIFF MASTER CASE DOSSIER (STANDARD)',
+    shortTitle: 'Plate 04: Solano Clean Master Dossier',
+    victimName: 'David Arthur Faraday & Betty Lou Jensen Official Master Record',
+    dateOfIncident: '20 DEC 1968 / CATALOGUED 28 MAY 1969',
+    location: "Lake Herman Road Lover's Lane Turnout, Benicia",
+    reportedBy: 'SGT. R. HALSTEAD, LEAD INVESTIGATOR',
+    imagePath: '/assets/aistudio/WhatsApp_Image_2026-10-29_at_7.00.45_PM_569a111e.jpeg',
+    isDraftOrCorrupted: false,
+    agencyHeader: {
+      dept: 'CALIFORNIA DEPARTMENT OF JUSTICE • SOLANO DIVISION',
+      subDept: 'RECORDS & EVIDENCE CONTROL MASTER ARCHIVE',
+      addressLines: ['CASE NO.: SOL-1968-1220', 'CLASSIFICATION: HOMICIDE MASTER', 'STATUS: UNREVISED'],
+    },
+    stamps: ['TOP SECRET', 'CONFIDENTIAL', 'CASE FILE - ACTIVE', 'RECORDS & EVIDENCE CONTROL'],
+    summary:
+      'Standard finalized official overview docket concerning the December 20, 1968 Lake Herman Road murders. Conforms to formal departmental recording standards with verified ballistics telemetry (10 total Winchester Western Super-X casings).',
+    victimProfiles: [
+      'OFFICIAL RECORD: David Arthur Faraday (Age 17) & Betty Lou Jensen (Age 16). Full master documentation.',
+    ],
+    ballisticsAndPhysicalEvidence: [
+      '1. Official ballistics certification for .22 caliber semiautomatic firearm discharge.',
+      '2. Rambler station wagon passenger window trajectory analysis.',
+      '3. Turnout roadway tire impression measurements.',
+    ],
+    caseStatus:
+      'STATUS: ACTIVE UNSOLVED MASTER. Held under permanent historical archival custody.',
+    investigatorSignature: {
+      signatureText: 'SGT. R. HALSTEAD',
+      leadTitle: 'SGT. R. HALSTEAD, LEAD INVESTIGATOR',
+      signedDate: '05/28/1969',
+      isHandwritten: false,
+    },
+    footerNotice: 'CANONICAL MASTER ARCHIVE — PRESERVED FOR JURISDICTIONAL REVIEW',
+  },
+  {
+    id: 'arch-plate-05',
+    documentNumber: 5,
+    caseNumber: 'ARCH-SOL-0704',
+    title: 'ARCHIVAL NEGATIVE // PLATE 05: BLUE ROCK SPRINGS TURNOUT & VEHICLE NEGATIVE',
+    shortTitle: 'Plate 05: Blue Rock Springs Negative',
+    victimName: 'Blue Rock Springs Park Crime Scene Negative (Mageau & Ferrin)',
+    dateOfIncident: '04 JUL 1969 / ARCHIVED 06 JUL 1969',
+    location: 'BLUE ROCK SPRINGS PARK, VALLEJO, CA',
+    reportedBy: 'FORENSIC IMAGING LABORATORY // NEGATIVE # 69-0715',
+    imagePath: '/assets/aistudio/WhatsApp_Image_2026-10-29_at_7.00.44_PM_0541a9e0.jpeg',
+    isDraftOrCorrupted: false,
+    agencyHeader: {
+      dept: "SOLANO COUNTY SHERIFF'S DEPARTMENT • INVESTIGATION DIVISION",
+      subDept: 'BUREAU OF INSPECTORS / FORENSIC PHOTOGRAPHIC LAB',
+      addressLines: ['CASE NO.: 69-0715', 'FILE NO.: 69-0932', 'SCENE: BLUE ROCK SPRINGS PARK'],
+    },
+    stamps: ['CONFIDENTIAL', 'CASE FILE - ACTIVE', 'DO NOT DUPLICATE'],
+    summary:
+      'Archival photographic negative documenting the remote parking area turnout at Blue Rock Springs Park. Records vehicle positioning, ballistic shell distribution on asphalt, and trajectory angles from the 9mm semiautomatic weapon discharge.',
+    victimProfiles: [
+      'FIELD EVIDENCE NEGATIVE: Michael V. Mageau (Survived) & Darlene E. Ferrin (Deceased).',
+    ],
+    ballisticsAndPhysicalEvidence: [
+      '1. 9mm shell casing distribution plate.',
+      '2. Vehicle exterior impact angle documentation.',
+      '3. Parking lot access trajectory negative.',
+    ],
+    caseStatus:
+      'STATUS: ARCHIVAL HOLD. Negative preserved under Solano County forensic chain-of-custody.',
+    investigatorSignature: {
+      signatureText: 'Lands',
+      leadTitle: 'DEPUTY R. LANDS, LEAD INVESTIGATOR',
+      signedDate: '07/06/1969',
+      isHandwritten: true,
+    },
+    footerNotice: 'FORENSIC PHOTOGRAPHIC SPECIMEN — RESTRICTED ACCESS',
+  },
+  {
+    id: 'arch-plate-06',
+    documentNumber: 6,
+    caseNumber: 'ARCH-SFPD-69-1127',
+    title: 'ARCHIVAL ARTIFACT // PLATE 06: FORENSIC LAB ACCESS LOG & PASSWORD SHEET',
+    shortTitle: 'Plate 06: Lab Access Worksheet Artifact',
+    victimName: 'Zodiac Investigation Division Access Sheet Physical Artifact',
+    dateOfIncident: '11/11/1969 / ARCHIVED 12/11/1969',
+    location: 'Forensic Imaging Laboratory, 850 Bryant St, SF',
+    reportedBy: 'PHOTOGRAPHER: J. R. CALDWELL',
+    imagePath: '/assets/aistudio/WhatsApp_Image_2026-10-30_at_14.58.37_8ef418ca.jpeg',
+    isDraftOrCorrupted: false,
+    agencyHeader: {
+      dept: "CITY AND COUNTY OF SAN FRANCISCO • SHERIFF'S DEPARTMENT",
+      subDept: 'INVESTIGATION DIVISION • FORENSIC IMAGING LABORATORY',
+      addressLines: ['CASE NO.: 69-1127', 'FILE NO.: 69-0549', 'CLASSIFICATION: CREDENTIALS LOG'],
+    },
+    stamps: ['CONFIDENTIAL // EVIDENCE ONLY', 'DO NOT REMOVE FROM FILE'],
+    summary:
+      'High-resolution archival scan of the original department credential worksheet. Documents internal passwords for Map, Archive, Audio, Terminal, and restricted dossier access alongside handwritten investigator field reminders.',
+    victimProfiles: [
+      'PHYSICAL RECOVERY SPECIMEN: Department credential sheet recovered from Forensic Imaging Laboratory filing cabinets.',
+    ],
+    ballisticsAndPhysicalEvidence: [
+      '1. Typewritten section codes with original red ink masking.',
+      '2. Handwritten field note: "Map: The password is a house number."',
+      '3. Handwritten field note: "Suspect Database: Use the same password as the previous website."',
+    ],
+    caseStatus:
+      'STATUS: CONFIDENTIAL RECOVERY LOG. Catalogued in digital investigation archive for investigator clearance orientation.',
+    investigatorSignature: {
+      signatureText: 'J. R. Caldwell',
+      leadTitle: 'J. R. CALDWELL, FORENSIC IMAGING LABORATORY',
+      signedDate: '11/12/1969',
+      isHandwritten: true,
+    },
+    footerNotice: 'INTERNAL EVIDENCE RECOVERY SHEET — DO NOT DISTRIBUTE',
+  },
+];
+
+/**
+ * Helper to retrieve documents for a specific collection.
+ */
+export function getCaseDocuments(collection: 'directive' | 'archival'): CaseDocumentItem[] {
+  return collection === 'archival' ? ARCHIVAL_FACSIMILE_DOCUMENTS : CLASSIFIED_CASE_DOCUMENTS;
+}
+
+/**
+ * Retrieve document by ID across all collections.
+ */
+export function getCaseDocumentById(id: string): CaseDocumentItem | undefined {
+  return (
+    CLASSIFIED_CASE_DOCUMENTS.find((d) => d.id === id) ||
+    ARCHIVAL_FACSIMILE_DOCUMENTS.find((d) => d.id === id)
+  );
+}
+
+

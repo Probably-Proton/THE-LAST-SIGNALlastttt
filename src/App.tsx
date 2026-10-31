@@ -133,6 +133,7 @@ import {
   SuspectDossierGaikowskiDoc,
   EllenValeJournalDoc,
   RecordRememberedTomorrowDoc,
+  StationIncidentReportDoc,
 } from '@/src/components/DocumentSystemSheets';
 import {
   InvestigationDashboard,
@@ -142,6 +143,7 @@ import { StaffRoomView } from '@/src/components/StaffRoomView';
 import { ClassifiedCaseFilesViewer } from '@/src/components/ClassifiedCaseFilesViewer';
 import { SupportTicketsView } from '@/src/components/SupportTicketsView';
 import { ClearanceTerminalView } from '@/src/components/ClearanceTerminalView';
+import { CrackedScreenAftermathOverlay } from '@/src/components/CrackedScreenAftermathOverlay';
 import {
   fetchMyTeam,
   createTeamAction,
@@ -592,9 +594,15 @@ export default function App() {
               </span>
             )}
 
-            <span className="live-status">
-              <span className="live-dot" /> Operative: {currentUser?.callSign}
-            </span>
+            {progress?.endingCorruptedAftermath && !progress?.aftermathDismissed ? (
+              <span className="live-status bg-red-950/80 border border-red-700 text-red-300 font-bold px-2 py-0.5 tracking-wider">
+                <span className="live-dot bg-red-500 animate-ping" /> SIGNAL LOST // ARCHIVE SEVERED
+              </span>
+            ) : (
+              <span className="live-status">
+                <span className="live-dot" /> Operative: {currentUser?.callSign}
+              </span>
+            )}
             <button className="profile-chip" onClick={() => navigate('/account')}>
               <span className="avatar">
                 {currentUser?.callSign.slice(0, 2).toUpperCase() ?? 'OP'}
@@ -658,6 +666,19 @@ export default function App() {
           onUpdateProgress={handleUpdateProgress}
         />
       )}
+
+      {/* Persistent Corrupted Aftermath Overlay & Diagnostic Toggle (Part 6) */}
+      <CrackedScreenAftermathOverlay
+        isAftermathActive={Boolean(progress?.endingCorruptedAftermath)}
+        isDismissed={Boolean(progress?.aftermathDismissed)}
+        onToggleDismiss={() => {
+          handleUpdateProgress((prev) => ({
+            ...prev,
+            aftermathDismissed: !prev.aftermathDismissed,
+          }));
+        }}
+        onReplayEnding={() => navigate('/debrief')}
+      />
     </div>
   );
 }
@@ -972,7 +993,7 @@ function PageHeader({
 }
 
 /* =========================================================================
-   1. HOMEPAGE (/) — Cinematic Landing + Conditional CTAs
+   1. HOMEPAGE (/) — Cinematic Landing + Active Investigation CTAs
    ========================================================================= */
 
 function LandingView({
@@ -990,18 +1011,18 @@ function LandingView({
 
   return (
     <div className="min-h-screen bg-[#0c0c0b] text-[#ebe6dc]">
-      {/* Top Pre-Registration Notice Banner */}
+      {/* Top Active Investigation Notice Banner */}
       <div className="bg-[#141514] border-b border-[#2a2927] py-2.5 px-4 text-center font-mono text-xs text-[#dcd1be] flex flex-wrap items-center justify-center gap-2">
         <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-        <strong className="tracking-[0.2em] text-emerald-400">PRE-REGISTRATION OPEN</strong>
+        <strong className="tracking-[0.2em] text-emerald-400">INVESTIGATION ACTIVE // TRANSMISSION LIVE</strong>
         <span className="text-[#8d8880] hidden sm:inline">·</span>
-        <span>OFFICIAL GAME LAUNCH: <strong className="text-crimson font-bold">{GAME_LAUNCH_IST}</strong></span>
+        <span>THE ARCHIVE IS UNSEALED: <strong className="text-crimson font-bold">ALL 7 STAGES OPEN FOR INTAKE</strong></span>
         <span className="text-[#8d8880] hidden sm:inline">·</span>
         <button
           onClick={() => navigate(user ? '/dashboard' : '/register')}
           className="text-crimson hover:underline font-bold tracking-wider inline-flex items-center gap-1 ml-1"
         >
-          {user ? 'View Standby Dossier →' : 'Register Call-Sign Now →'}
+          {user ? 'Enter Investigation Dashboard →' : 'Register Call-Sign & Begin →'}
         </button>
       </div>
 
@@ -1024,7 +1045,7 @@ function LandingView({
                   onClick={() => navigate('/dashboard')}
                   className="font-mono text-xs uppercase tracking-[0.2em] text-[#ebe6dc] hover:underline"
                 >
-                  Standby Terminal ({user.callSign})
+                  Investigation Desk ({user.callSign})
                 </button>
                 <button
                   onClick={onLogout}
@@ -1045,7 +1066,7 @@ function LandingView({
                   onClick={() => navigate('/register')}
                   className="button button-primary hidden sm:inline-flex"
                 >
-                  Pre-Register Call-Sign
+                  Register Call-Sign
                 </button>
               </>
             )}
@@ -1071,7 +1092,7 @@ function LandingView({
             <span aria-hidden className="h-px w-10 bg-[#8d8880]/50" />
             <span className="inline-flex items-center gap-2 text-emerald-400">
               <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-              STATUS: PRE-REGISTRATION OPEN (LAUNCH: {GAME_LAUNCH_IST})
+              STATUS: INVESTIGATION ACTIVE // OFFICIAL BROADCAST LIVE
             </span>
           </div>
 
@@ -1088,30 +1109,23 @@ function LandingView({
 
           <p className="mt-8 max-w-xl font-serif text-lg leading-relaxed text-[#ebe6dc]/85 md:text-xl">
             A fictional interactive investigation in seven stages across fourteen days. An archive of
-            historical records has been reopened for review. Pre-register your school call-sign, reserve your
-            operative profile, and prepare to enter the repository when the official broadcast begins.
+            historical records has been reopened for review. The case is active. Your investigation begins now.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center gap-6">
-            {user ? (
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="button button-primary px-8 py-4 text-xs font-medium tracking-[0.26em]"
-              >
-                STANDBY TERMINAL ({user.callSign})
-                <ArrowRight size={16} />
-              </button>
-            ) : (
-              <button
-                onClick={() => navigate('/register')}
-                className="button button-primary px-8 py-4 text-xs font-medium tracking-[0.26em]"
-              >
-                PRE-REGISTER CALL-SIGN
-                <ArrowRight size={16} />
-              </button>
-            )}
+            <button
+              onClick={() => navigate(user ? '/dashboard' : '/register')}
+              className="button button-primary px-8 py-4 text-xs font-bold tracking-[0.26em] shadow-[0_0_25px_rgba(200,40,40,0.35)]"
+            >
+              ENTER THE INVESTIGATION
+              <ArrowRight size={16} />
+            </button>
 
-            {!user && (
+            {user ? (
+              <span className="font-mono text-xs uppercase tracking-[0.2em] text-[#8d8880]">
+                Active Operative: <strong className="text-[#ebe6dc]">{user.callSign}</strong>
+              </span>
+            ) : (
               <button
                 onClick={() => navigate('/login')}
                 className="font-mono text-xs uppercase tracking-[0.24em] text-[#8d8880] underline-offset-8 hover:text-[#ebe6dc] hover:underline"
@@ -1125,10 +1139,10 @@ function LandingView({
         {/* Case Metadata Strip */}
         <dl className="relative mx-auto grid w-full max-w-7xl grid-cols-2 border-t border-[#2a2927] px-5 font-mono text-[11px] uppercase tracking-[0.2em] md:grid-cols-4 md:px-10">
           {[
-            ['Planned Launch', GAME_LAUNCH_IST],
-            ['Registration Window', REGISTRATION_OPEN_IST],
+            ['Investigation Status', 'ACTIVE & IN PROGRESS'],
+            ['Operative Clearance', 'ALL 7 WAVES OPEN'],
             ['Investigation Duration', '14 Calendar Days'],
-            ['Stage Windows', '07 Waves (48h each)'],
+            ['Challenge Format', '07 Progressive Waves'],
           ].map(([label, value]) => (
             <div
               key={label}
@@ -1324,7 +1338,7 @@ function RegisterView({ onRegistered }: { onRegistered: (user: PrototypeUser) =>
             className="font-mono text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
             onClick={() => onRegistered(confirmedUser)}
           >
-            Open Launch Terminal →
+            Enter Investigation →
           </button>
         </header>
 
@@ -1335,11 +1349,11 @@ function RegisterView({ onRegistered }: { onRegistered: (user: PrototypeUser) =>
                 <Check size={24} />
               </div>
               <span className="font-mono text-xs uppercase tracking-[0.28em] text-emerald-400 block font-bold">
-                PRE-REGISTRATION CONFIRMED
+                REGISTRATION CONFIRMED
               </span>
               <h1 className="font-serif text-3xl font-light">Operative Dossier Enrolled</h1>
               <p className="font-serif text-sm text-muted-foreground">
-                Your credentials have been securely registered for Case {CASE_ID}.
+                Your credentials have been securely registered for Case {CASE_ID}. Clearance granted.
               </p>
             </div>
 
@@ -1369,33 +1383,33 @@ function RegisterView({ onRegistered }: { onRegistered: (user: PrototypeUser) =>
                 <span className="text-[#8d8880]">{confirmedUser.admissionNumberMasked}</span>
               </div>
               <div className="flex justify-between border-b border-[#222120] pb-2">
-                <span className="text-muted-foreground">OFFICIAL GAME LAUNCH:</span>
-                <span className="text-crimson font-bold">{GAME_LAUNCH_IST}</span>
+                <span className="text-muted-foreground">CLEARANCE LEVEL:</span>
+                <span className="text-crimson font-bold">STAGE 01 UNSEALED</span>
               </div>
               <div className="flex justify-between pt-1">
                 <span className="text-muted-foreground">INVESTIGATION STATUS:</span>
-                <span className="text-amber-400 font-bold">STANDBY · SEALED UNTIL LAUNCH</span>
+                <span className="text-emerald-400 font-bold">ACTIVE · TRANSMISSION IN PROGRESS</span>
               </div>
             </div>
 
             <div className="bg-[#16120e] border border-[#3d2b17] p-4 text-xs font-serif text-[#d4b996] space-y-2">
               <p className="m-0 leading-relaxed">
-                <strong>Launch Protocol:</strong> All evidence vaults, cipher dockets, and audio archives are locked.
-                The first archival frequency will transmit on <strong>{GAME_LAUNCH_IST}</strong>.
+                <strong>Investigation Active:</strong> All initial evidence files, cipher dockets, and audio archives are open.
+                Begin by reviewing <strong>EV-0101 (Scene Overview)</strong> and <strong>EV-0102 (Radio Receiver)</strong>.
               </p>
             </div>
 
             <div className="space-y-3 pt-2">
               <button
                 onClick={() => onRegistered(confirmedUser)}
-                className="button button-primary w-full text-xs tracking-[0.24em] py-3.5 flex items-center justify-center gap-2"
+                className="button button-primary w-full text-xs tracking-[0.24em] py-3.5 flex items-center justify-center gap-2 font-bold"
               >
-                OPEN LAUNCH TERMINAL <ArrowRight size={15} />
+                ENTER THE INVESTIGATION <ArrowRight size={15} />
               </button>
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(
-                    `THE LAST SIGNAL — CASE ${CASE_ID}\nOperative Call-Sign: ${confirmedUser.callSign}\nEmail: ${confirmedUser.email || 'N/A'}\nLaunch: ${GAME_LAUNCH_IST}`
+                    `THE LAST SIGNAL — CASE ${CASE_ID}\nOperative Call-Sign: ${confirmedUser.callSign}\nEmail: ${confirmedUser.email || 'N/A'}\nStatus: Active Investigation`
                   );
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
@@ -1434,17 +1448,17 @@ function RegisterView({ onRegistered }: { onRegistered: (user: PrototypeUser) =>
         <div className="auth-card">
           <div className="auth-header">
             <span className="font-mono text-xs uppercase tracking-[0.24em] text-emerald-400 font-bold">
-              STUDENT OPERATIVE INTAKE · PRE-REGISTRATION OPEN
+              STUDENT OPERATIVE INTAKE · INVESTIGATION ACTIVE
             </span>
-            <h1>Pre-Register Call-Sign</h1>
+            <h1>Register Investigator Call-Sign</h1>
             <p className="font-serif text-sm text-muted-foreground m-0">
-              Official Competition Launch: <strong>{GAME_LAUNCH_IST}</strong>. Reserve your operative call-sign now.
+              The case is active. Create your operative call-sign to immediately enter the investigation.
             </p>
           </div>
 
           <div className="auth-notice-box">
-            <strong>PRE-REGISTRATION NOTICE:</strong> Student registration is actively open.
-            All investigation dockets, evidence archives, and suspect databases remain sealed until the official launch date on {GAME_LAUNCH_IST}.
+            <strong>ACTIVE INVESTIGATION PROTOCOL:</strong> Student registration is live.
+            Evidence archives and suspect dossiers are unsealed. Enrolling your credentials grants instant clearance to Case {CASE_ID}.
           </div>
 
           {error && <div className="form-error">{error}</div>}
@@ -1560,9 +1574,9 @@ function RegisterView({ onRegistered }: { onRegistered: (user: PrototypeUser) =>
             <button
               type="submit"
               disabled={loading}
-              className="button button-primary w-full mt-4 text-xs tracking-[0.24em] py-3.5"
+              className="button button-primary w-full mt-4 text-xs tracking-[0.24em] py-3.5 font-bold"
             >
-              <UserPlus size={15} /> {loading ? 'CONFIRMING ENROLLMENT...' : 'CONFIRM PRE-REGISTRATION'}
+              <UserPlus size={15} /> {loading ? 'CONFIRMING ENROLLMENT...' : 'ENROLL AS INVESTIGATOR & ENTER'}
             </button>
           </form>
 
@@ -2434,14 +2448,7 @@ function EvidenceViewerView({
 
           <div className="viewer-scroll-area">
             <div style={{ width: `${Math.min(760 * zoom, 1000)}px`, transition: 'width 0.2s ease' }}>
-              {item.id === 'EV-0701' ? (
-                <DebriefView
-                  user={getActiveUser()!}
-                  progress={progress}
-                  onUpdateProgress={onUpdateProgress}
-                  onNavigateHome={() => navigate('/dashboard')}
-                />
-              ) : item.id === 'EV-0101' ? (
+              {item.id === 'EV-0101' ? (
                 page === 0 ? <SceneOverviewDoc item={item} /> : <AttachmentSheet item={item} />
               ) : item.id === 'EV-0102' ? (
                 page === 0 ? <RadioReceiverDoc item={item} /> : <AttachmentSheet item={item} />
@@ -2488,7 +2495,7 @@ function EvidenceViewerView({
                   />
                 )
               ) : item.id === 'EV-0702' ? (
-                <NewspaperSheet item={item} />
+                <StationIncidentReportDoc item={item} page={page} />
               ) : item.category === 'Audio' ? (
                 <AudioPlayerSheet item={item} />
               ) : item.category === 'Newspaper' ? (
@@ -4634,6 +4641,21 @@ interface LeaderboardEntry {
   lastProgress?: string | null;
 }
 
+interface LeaderboardEntry {
+  pos: number;
+  name: string;
+  kind: 'team' | 'solo';
+  score: number;
+  stagesCompleted: number;
+  currentStage: number;
+  completionPercentage: number;
+  lastProgress?: string | null;
+  studentClass?: string;
+  members?: string[];
+  isCreator?: boolean;
+  teamSize?: number;
+}
+
 function LeaderboardView({
   user,
   progress,
@@ -4641,35 +4663,97 @@ function LeaderboardView({
   user: PrototypeUser;
   progress: UserProgress;
 }) {
-  const [tab, setTab] = useState<'teams' | 'individuals'>('teams');
+  const [tab, setTab] = useState<'all' | 'team' | 'solo'>('all');
+  const [classFilter, setClassFilter] = useState<string>('all');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProfile, setSelectedProfile] = useState<LeaderboardEntry | null>(null);
 
   const isExcluded = Boolean(
     user.excludeFromLeaderboard ||
     progress.excludeFromLeaderboard ||
     user.hasStageOverride ||
     progress.hasStageOverride ||
-    (user.email && user.email.toLowerCase().trim() === 'rudrapratapf.0562@gmail.com') ||
+    (user.email &&
+      (user.email.toLowerCase().trim() === 'rudrapratapj.0562@gmail.com' ||
+        user.email.toLowerCase().trim() === 'rudrapratapf.0562@gmail.com')) ||
     user.isStaff
   );
+
+  // Sync user's live progress to server leaderboard on mount
+  useEffect(() => {
+    fetch('/api/leaderboard/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        callSign: user.callSign,
+        fullName: user.fullName,
+        studentClass: user.studentClass || 'Class 9',
+        score: progress.score,
+        stagesCompleted: progress.stagesCompleted,
+        lastProgress:
+          progress.organizerAuditLog?.[progress.organizerAuditLog.length - 1]?.timestamp ||
+          user.registeredAt,
+        excludeFromLeaderboard: isExcluded,
+        hasStageOverride: Boolean(user.hasStageOverride || progress.hasStageOverride),
+        teamName: progress.teamName || null,
+        isStaff: Boolean(user.isStaff),
+      }),
+    }).catch(() => {});
+  }, [user, progress, isExcluded]);
 
   useEffect(() => {
     let cancelled = false;
     async function loadLeaderboard() {
       setLoading(true);
 
-      // 1. Supabase get_leaderboard RPC if configured
+      // 1. Try server aggregated leaderboard API
+      try {
+        const queryParams = new URLSearchParams();
+        if (tab !== 'all') queryParams.set('kind', tab);
+        if (classFilter !== 'all') queryParams.set('class', classFilter);
+
+        const res = await fetch(`/api/leaderboard?${queryParams.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.entries)) {
+            if (!cancelled) {
+              const mapped: LeaderboardEntry[] = data.entries.map((item: any) => ({
+                pos: item.rank,
+                name: item.name,
+                kind: item.kind,
+                score: item.score,
+                stagesCompleted: item.stagesCompleted,
+                currentStage: item.currentStage || Math.min(7, item.stagesCompleted + 1),
+                completionPercentage:
+                  item.completionPercentage ?? Math.round((item.stagesCompleted / 7) * 100),
+                lastProgress: item.lastProgress,
+                studentClass: item.studentClass,
+                members: item.members,
+                teamSize: item.teamSize,
+              }));
+              setEntries(mapped);
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[LeaderboardView] Server leaderboard fetch error:', err);
+      }
+
+      // 2. Supabase get_leaderboard RPC if configured
       if (isSupabaseConfigured && supabase) {
         try {
-          const kind = tab === 'teams' ? 'team' : 'solo';
-          const { data, error } = await supabase.rpc('get_leaderboard', { p_kind: kind });
+          const kindParam = tab === 'team' ? 'team' : tab === 'solo' ? 'solo' : 'all';
+          const { data, error } = await supabase.rpc('get_leaderboard', { p_kind: kindParam });
           if (!error && Array.isArray(data)) {
             if (!cancelled) {
-              const sanitizedRows = data
+              const sanitizedRows: LeaderboardEntry[] = data
                 .filter((row: any) => {
                   const rName = String(row.name || '').toLowerCase().trim();
                   if (
+                    rName === 'rudrapratapj.0562@gmail.com' ||
                     rName === 'rudrapratapf.0562@gmail.com' ||
                     (isExcluded && rName === user.callSign.toLowerCase().trim())
                   ) {
@@ -4680,8 +4764,11 @@ function LeaderboardView({
                 .map((row: any, idx: number) => ({
                   pos: idx + 1,
                   name: row.name,
+                  kind: (row.kind || 'solo') as 'team' | 'solo',
                   score: Number(row.score),
                   stagesCompleted: Number(row.stages_completed ?? 0),
+                  currentStage: Math.min(7, Number(row.stages_completed ?? 0) + 1),
+                  completionPercentage: Math.round((Number(row.stages_completed ?? 0) / 7) * 100),
                   lastProgress: row.last_progress,
                 }));
               setEntries(sanitizedRows);
@@ -4694,84 +4781,103 @@ function LeaderboardView({
         }
       }
 
-      // 2. Prototype / local fallback
+      // 3. Prototype / local fallback
       const allUsers = getAllUsers();
-      // Strictly exclude staff, testing accounts with stage overrides, and developer account
       const eligibleUsers = allUsers.filter((u) => {
         if (
           u.isStaff ||
           u.excludeFromLeaderboard ||
           u.hasStageOverride ||
-          (u.email && u.email.toLowerCase().trim() === 'rudrapratapf.0562@gmail.com')
+          (u.email &&
+            (u.email.toLowerCase().trim() === 'rudrapratapj.0562@gmail.com' ||
+              u.email.toLowerCase().trim() === 'rudrapratapf.0562@gmail.com'))
         ) {
           return false;
         }
         const uProg = getUserProgress(u.callSign);
         if (uProg.excludeFromLeaderboard || uProg.hasStageOverride) return false;
+        if (classFilter !== 'all' && u.studentClass && u.studentClass !== classFilter) return false;
         return true;
       });
 
-      if (tab === 'individuals') {
-        const rows = eligibleUsers
-          .map((u) => {
+      const rows: LeaderboardEntry[] = [];
+
+      if (tab === 'all' || tab === 'solo') {
+        eligibleUsers
+          .filter((u) => !getUserProgress(u.callSign).teamName)
+          .forEach((u) => {
             const uProg = getUserProgress(u.callSign);
-            return {
+            rows.push({
+              pos: 0,
               name: u.callSign,
+              kind: 'solo',
               score: uProg.score,
               stagesCompleted: uProg.stagesCompleted,
-              lastProgress: uProg.organizerAuditLog?.[uProg.organizerAuditLog.length - 1]?.timestamp || u.registeredAt,
-            };
-          })
-          .sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score;
-            if (b.stagesCompleted !== a.stagesCompleted) return b.stagesCompleted - a.stagesCompleted;
-            return a.name.localeCompare(b.name);
-          })
-          .map((item, idx) => ({
-            pos: idx + 1,
-            ...item,
-          }));
+              currentStage: Math.min(7, uProg.stagesCompleted + 1),
+              completionPercentage: Math.round((uProg.stagesCompleted / 7) * 100),
+              lastProgress:
+                uProg.organizerAuditLog?.[uProg.organizerAuditLog.length - 1]?.timestamp ||
+                u.registeredAt,
+              studentClass: u.studentClass,
+            });
+          });
+      }
 
-        if (!cancelled) {
-          setEntries(rows);
-          setLoading(false);
-        }
-      } else {
-        // Teams tab
-        const teamMap = new Map<string, { score: number; stagesCompleted: number; lastProgress?: string }>();
+      if (tab === 'all' || tab === 'team') {
+        const teamMap = new Map<
+          string,
+          { score: number; stagesCompleted: number; lastProgress?: string; members: string[] }
+        >();
         eligibleUsers.forEach((u) => {
           const uProg = getUserProgress(u.callSign);
           if (uProg.teamName) {
-            const current = teamMap.get(uProg.teamName) || { score: 0, stagesCompleted: 0 };
+            const current = teamMap.get(uProg.teamName) || {
+              score: 0,
+              stagesCompleted: 0,
+              members: [],
+            };
+            current.members.push(u.callSign);
             teamMap.set(uProg.teamName, {
               score: Math.max(current.score, uProg.score),
               stagesCompleted: Math.max(current.stagesCompleted, uProg.stagesCompleted),
-              lastProgress: uProg.organizerAuditLog?.[uProg.organizerAuditLog.length - 1]?.timestamp || u.registeredAt,
+              lastProgress:
+                uProg.organizerAuditLog?.[uProg.organizerAuditLog.length - 1]?.timestamp ||
+                u.registeredAt,
+              members: current.members,
             });
           }
         });
 
-        const rows = Array.from(teamMap.entries())
-          .map(([teamName, data]) => ({
+        Array.from(teamMap.entries()).forEach(([teamName, data]) => {
+          rows.push({
+            pos: 0,
             name: teamName,
+            kind: 'team',
             score: data.score,
             stagesCompleted: data.stagesCompleted,
+            currentStage: Math.min(7, data.stagesCompleted + 1),
+            completionPercentage: Math.round((data.stagesCompleted / 7) * 100),
             lastProgress: data.lastProgress,
-          }))
-          .sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score;
-            if (b.stagesCompleted !== a.stagesCompleted) return b.stagesCompleted - a.stagesCompleted;
-            return a.name.localeCompare(b.name);
-          })
-          .map((item, idx) => ({
-            pos: idx + 1,
-            ...item,
-          }));
+            members: data.members,
+            teamSize: data.members.length,
+          });
+        });
+      }
 
-        if (!cancelled) {
-          setEntries(rows);
-          setLoading(false);
-        }
+      rows.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.stagesCompleted !== a.stagesCompleted) return b.stagesCompleted - a.stagesCompleted;
+        return a.name.localeCompare(b.name);
+      });
+
+      const ranked = rows.map((item, idx) => ({
+        ...item,
+        pos: idx + 1,
+      }));
+
+      if (!cancelled) {
+        setEntries(ranked);
+        setLoading(false);
       }
     }
 
@@ -4779,14 +4885,16 @@ function LeaderboardView({
     return () => {
       cancelled = true;
     };
-  }, [tab]);
+  }, [tab, classFilter, isExcluded, user.callSign]);
+
+  const topThree = entries.slice(0, 3);
 
   return (
     <>
       <PageHeader
-        eyebrow="Event Standings / The Last Signal"
+        eyebrow="Intelligence Standings / Case TLS-0017"
         title="Investigation Leaderboard"
-        description="Public rankings for teams and independent investigators. Official rankings will be awarded live upon event commencement."
+        description="Public operational standings for student teams and independent operatives. Verified records and competitive puzzle advances unsealed in real time."
       />
 
       {/* Exclusion indicator banner if the active user is an administrator, developer, or insider */}
@@ -4798,116 +4906,447 @@ function LeaderboardView({
           <div className="space-y-1 font-mono text-xs">
             <div className="flex items-center gap-2">
               <span className="font-bold text-amber-300 uppercase tracking-wider">
-                UNRANKED ACCOUNT // INSIDER &amp; TESTING CLEARANCE
+                UNRANKED ACCOUNT // TESTING &amp; ADMINISTRATIVE CLEARANCE
               </span>
               <span className="text-[10px] bg-amber-950/80 border border-amber-600/70 text-amber-300 px-1.5 py-0.2">
                 EXCLUDED FROM PUBLIC BOARD
               </span>
             </div>
             <p className="text-[11px] text-[#c7ab93] leading-relaxed m-0">
-              This operative account has administrator, creator, or testing clearance and is excluded from public competition standings and prize rankings. Your scores, stage clearance, and case submissions remain fully tracked for verification.
+              This operative account has testing, developer, or administrative clearance and is excluded
+              from public competition standings and prize rankings. Your progress and stage answers remain
+              fully verified for technical auditing.
             </p>
           </div>
         </div>
       )}
 
-      <div className="flex gap-4 border-b border-border pb-4 mb-6">
-        <button
-          onClick={() => {
-            tacticalAudio.playButtonClick();
-            setTab('teams');
-          }}
-          className={`font-mono text-xs uppercase tracking-widest ${
-            tab === 'teams'
-              ? 'text-foreground underline decoration-crimson decoration-2 underline-offset-8'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Teams Roster
-        </button>
-        <button
-          onClick={() => {
-            tacticalAudio.playButtonClick();
-            setTab('individuals');
-          }}
-          className={`font-mono text-xs uppercase tracking-widest ${
-            tab === 'individuals'
-              ? 'text-foreground underline decoration-crimson decoration-2 underline-offset-8'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Individual Operatives
-        </button>
-      </div>
-
-      <div className="panel p-0 overflow-hidden">
-        <div className="grid grid-cols-[80px_1fr_120px_100px] gap-4 p-4 border-b border-border font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          <span>Rank</span>
-          <span>Investigator Entity</span>
-          <span>Stages Cleared</span>
-          <span className="text-right">Score</span>
-        </div>
-        <div className="divide-y divide-border font-mono text-xs">
-          {/* Active user entry (always shows personal score/stages, but indicates UNRANKED if excluded) */}
-          <div className="grid grid-cols-[80px_1fr_120px_100px] gap-4 p-4 items-center bg-[#211615]">
-            <span className={isExcluded ? "text-amber-400 font-bold text-[11px]" : "text-crimson font-bold"}>
-              {isExcluded ? 'UNRANKED' : '—'}
-            </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-serif text-base text-foreground font-medium block">
-                  {user.callSign} (You)
-                </span>
-                {isExcluded && (
-                  <span className="text-[9px] font-mono px-1.5 py-0.5 bg-amber-950/80 border border-amber-600 text-amber-300">
-                    EXCLUDED
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] text-muted-foreground">
-                {progress.teamName ? `Team: ${progress.teamName}` : 'Solo Operative'}
-              </span>
-            </div>
-            <span className="text-muted-foreground">0{progress.stagesCompleted} / 07</span>
-            <span className="text-right text-crimson font-bold">{progress.score} pts</span>
+      {/* Top-3 Podium (Visible when entries exist) */}
+      {entries.length >= 1 && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3 font-mono text-xs text-muted-foreground uppercase tracking-widest">
+            <span>FIELD LEADERS // TOP 3 RECONNAISSANCE</span>
+            <span className="text-[11px] text-amber-400/80 font-bold">CASE STATUS: ACTIVE</span>
           </div>
-
-          {/* Public leaderboard entries */}
-          {loading ? (
-            <div className="p-8 text-center text-muted-foreground font-mono text-xs animate-pulse">
-              Querying verified case standings...
-            </div>
-          ) : entries.length > 0 ? (
-            entries.map((item) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 2nd Place (Silver) */}
+            {topThree[1] ? (
               <div
-                key={`${item.pos}-${item.name}`}
-                className="grid grid-cols-[80px_1fr_120px_100px] gap-4 p-4 items-center hover:bg-[#141413] transition-colors"
+                onClick={() => {
+                  tacticalAudio.playButtonClick();
+                  setSelectedProfile(topThree[1]);
+                }}
+                className="order-2 md:order-1 p-4 bg-[#141514] border border-[#383734] hover:border-slate-400 transition cursor-pointer relative group flex flex-col justify-between"
               >
-                <span className="text-foreground font-bold">#{item.pos}</span>
-                <div>
-                  <span className="font-serif text-base text-foreground font-medium block">
-                    {item.name}
-                  </span>
-                  {item.lastProgress && (
-                    <span className="text-[10px] text-muted-foreground">
-                      Last solve: {formatToIST(item.lastProgress)}
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-2">
+                    <span className="size-6 rounded-full bg-slate-300/10 border border-slate-400 text-slate-300 flex items-center justify-center font-mono text-xs font-bold">
+                      2
                     </span>
-                  )}
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
+                      Silver Standing
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 bg-[#1b1c1b] border border-border text-muted-foreground">
+                    {topThree[1].kind === 'team' ? 'TEAM UNIT' : 'SOLO'}
+                  </span>
                 </div>
-                <span className="text-muted-foreground">0{item.stagesCompleted} / 07</span>
-                <span className="text-right text-foreground font-bold">{item.score} pts</span>
+                <div className="my-3">
+                  <h3 className="font-serif text-xl font-light text-foreground group-hover:text-white transition-colors">
+                    {topThree[1].name}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1 text-xs font-mono text-muted-foreground">
+                    <span>{topThree[1].stagesCompleted}/7 Stages</span>
+                    <span>·</span>
+                    <span>{topThree[1].completionPercentage}% Progress</span>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-[#222120] flex justify-between items-center font-mono">
+                  <span className="text-[11px] text-muted-foreground">Score</span>
+                  <span className="text-base font-bold text-foreground">{topThree[1].score} pts</span>
+                </div>
               </div>
-            ))
-          ) : (
-            <div className="p-8 text-center text-muted-foreground font-mono text-xs">
-              <p>Official school competition opens November 01, 2026.</p>
-              <p className="text-[11px] text-muted-foreground/70 mt-1">
-                Leaderboard will populate automatically as eligible investigators submit verified challenge answers.
-              </p>
-            </div>
-          )}
+            ) : (
+              <div className="order-2 md:order-1 p-4 bg-[#10100f] border border-dashed border-[#262624] text-center font-mono text-xs text-muted-foreground flex items-center justify-center">
+                Position #2 Open
+              </div>
+            )}
+
+            {/* 1st Place (Gold) */}
+            {topThree[0] ? (
+              <div
+                onClick={() => {
+                  tacticalAudio.playButtonClick();
+                  setSelectedProfile(topThree[0]);
+                }}
+                className="order-1 md:order-2 p-5 bg-[#171613] border-2 border-amber-500/60 hover:border-amber-400 transition cursor-pointer relative group flex flex-col justify-between shadow-[0_0_20px_rgba(245,158,11,0.1)]"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-2">
+                    <span className="size-7 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 flex items-center justify-center font-mono text-sm font-bold">
+                      1
+                    </span>
+                    <span className="font-mono text-[11px] uppercase tracking-wider text-amber-400 font-bold">
+                      Gold Standing
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 bg-amber-950/40 border border-amber-600/50 text-amber-300 font-bold">
+                    {topThree[0].kind === 'team' ? 'TEAM UNIT' : 'SOLO OPERATIVE'}
+                  </span>
+                </div>
+                <div className="my-4">
+                  <h3 className="font-serif text-2xl font-light text-amber-100 group-hover:text-amber-300 transition-colors">
+                    {topThree[0].name}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1.5 text-xs font-mono text-amber-200/70">
+                    <span>{topThree[0].stagesCompleted}/7 Stages</span>
+                    <span>·</span>
+                    <span>{topThree[0].completionPercentage}% Cleared</span>
+                  </div>
+                </div>
+                <div className="pt-2.5 border-t border-amber-900/40 flex justify-between items-center font-mono">
+                  <span className="text-[11px] text-amber-400/80">Leading Score</span>
+                  <span className="text-xl font-bold text-amber-300">{topThree[0].score} pts</span>
+                </div>
+              </div>
+            ) : (
+              <div className="order-1 md:order-2 p-4 bg-[#10100f] border border-dashed border-[#262624] text-center font-mono text-xs text-muted-foreground flex items-center justify-center">
+                Position #1 Open
+              </div>
+            )}
+
+            {/* 3rd Place (Bronze) */}
+            {topThree[2] ? (
+              <div
+                onClick={() => {
+                  tacticalAudio.playButtonClick();
+                  setSelectedProfile(topThree[2]);
+                }}
+                className="order-3 p-4 bg-[#141514] border border-[#383734] hover:border-amber-700/60 transition cursor-pointer relative group flex flex-col justify-between"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-2">
+                    <span className="size-6 rounded-full bg-amber-900/20 border border-amber-700 text-amber-600 flex items-center justify-center font-mono text-xs font-bold">
+                      3
+                    </span>
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-amber-600">
+                      Bronze Standing
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 bg-[#1b1c1b] border border-border text-muted-foreground">
+                    {topThree[2].kind === 'team' ? 'TEAM UNIT' : 'SOLO'}
+                  </span>
+                </div>
+                <div className="my-3">
+                  <h3 className="font-serif text-xl font-light text-foreground group-hover:text-white transition-colors">
+                    {topThree[2].name}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1 text-xs font-mono text-muted-foreground">
+                    <span>{topThree[2].stagesCompleted}/7 Stages</span>
+                    <span>·</span>
+                    <span>{topThree[2].completionPercentage}% Progress</span>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-[#222120] flex justify-between items-center font-mono">
+                  <span className="text-[11px] text-muted-foreground">Score</span>
+                  <span className="text-base font-bold text-foreground">{topThree[2].score} pts</span>
+                </div>
+              </div>
+            ) : (
+              <div className="order-3 p-4 bg-[#10100f] border border-dashed border-[#262624] text-center font-mono text-xs text-muted-foreground flex items-center justify-center">
+                Position #3 Open
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Filter Toolbar: Entity Tabs + School Class Filter */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4 mb-6">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              tacticalAudio.playButtonClick();
+              setTab('all');
+            }}
+            className={`px-3 py-1 font-mono text-xs uppercase tracking-wider transition-colors ${
+              tab === 'all'
+                ? 'bg-crimson text-white font-bold'
+                : 'bg-[#151514] text-muted-foreground hover:text-foreground border border-border'
+            }`}
+          >
+            All Units
+          </button>
+          <button
+            onClick={() => {
+              tacticalAudio.playButtonClick();
+              setTab('team');
+            }}
+            className={`px-3 py-1 font-mono text-xs uppercase tracking-wider transition-colors ${
+              tab === 'team'
+                ? 'bg-crimson text-white font-bold'
+                : 'bg-[#151514] text-muted-foreground hover:text-foreground border border-border'
+            }`}
+          >
+            Teams Roster
+          </button>
+          <button
+            onClick={() => {
+              tacticalAudio.playButtonClick();
+              setTab('solo');
+            }}
+            className={`px-3 py-1 font-mono text-xs uppercase tracking-wider transition-colors ${
+              tab === 'solo'
+                ? 'bg-crimson text-white font-bold'
+                : 'bg-[#151514] text-muted-foreground hover:text-foreground border border-border'
+            }`}
+          >
+            Solo Operatives
+          </button>
+        </div>
+
+        {/* Class Filter Dropdown */}
+        <div className="flex items-center gap-2 font-mono text-xs">
+          <Filter size={13} className="text-muted-foreground" />
+          <span className="text-muted-foreground uppercase text-[11px]">Class Filter:</span>
+          <select
+            value={classFilter}
+            onChange={(e) => {
+              tacticalAudio.playButtonClick();
+              setClassFilter(e.target.value);
+            }}
+            className="bg-[#141514] border border-[#2a2927] text-[#ebe6dc] px-2.5 py-1 text-xs font-mono focus:border-crimson focus:outline-none"
+          >
+            <option value="all">All Divisions</option>
+            {CLASS_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
+
+      {/* Leaderboard Table */}
+      <div className="panel p-0 overflow-hidden shadow-lg border border-border">
+        <div className="overflow-x-auto">
+          <div className="min-w-[700px]">
+            <div className="grid grid-cols-[60px_1fr_100px_90px_120px_110px_130px] gap-3 p-3.5 border-b border-border font-mono text-[10px] uppercase tracking-wider text-muted-foreground bg-[#111211]">
+              <span>Rank</span>
+              <span>Investigator Entity</span>
+              <span>Unit Type</span>
+              <span>Stage</span>
+              <span>Completion</span>
+              <span className="text-right">Total Score</span>
+              <span className="text-right">Last Solve (IST)</span>
+            </div>
+
+            <div className="divide-y divide-border font-mono text-xs">
+              {/* Active user entry (Always visible for personal benchmarking) */}
+              <div className="grid grid-cols-[60px_1fr_100px_90px_120px_110px_130px] gap-3 p-3.5 items-center bg-[#201514] border-l-2 border-l-crimson">
+                <span className={isExcluded ? 'text-amber-400 font-bold text-[11px]' : 'text-crimson font-bold'}>
+                  {isExcluded ? 'UNRANKED' : '—'}
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif text-sm text-foreground font-medium block">
+                      {user.callSign} (You)
+                    </span>
+                    {isExcluded && (
+                      <span className="text-[9px] font-mono px-1 py-0.2 bg-amber-950/80 border border-amber-600 text-amber-300">
+                        ADMIN/TEST
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    {user.studentClass || 'Class 9'}
+                  </span>
+                </div>
+                <span className="text-[10px] text-muted-foreground">
+                  {progress.teamName ? `Team: ${progress.teamName}` : 'Solo'}
+                </span>
+                <span className="text-muted-foreground">Stage 0{progress.activeStage || 1}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-16 h-1.5 bg-[#151514] rounded-full overflow-hidden border border-border">
+                    <div
+                      className="h-full bg-crimson"
+                      style={{ width: `${Math.round((progress.stagesCompleted / 7) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    {Math.round((progress.stagesCompleted / 7) * 100)}%
+                  </span>
+                </div>
+                <span className="text-right text-crimson font-bold">{progress.score} pts</span>
+                <span className="text-right text-[10px] text-muted-foreground">Personal Record</span>
+              </div>
+
+              {/* Verified Entries List */}
+              {loading ? (
+                <div className="p-10 text-center text-muted-foreground font-mono text-xs animate-pulse">
+                  Querying verified intelligence standings...
+                </div>
+              ) : entries.length > 0 ? (
+                entries.map((item) => (
+                  <div
+                    key={`${item.pos}-${item.name}`}
+                    onClick={() => {
+                      tacticalAudio.playButtonClick();
+                      setSelectedProfile(item);
+                    }}
+                    className="grid grid-cols-[60px_1fr_100px_90px_120px_110px_130px] gap-3 p-3.5 items-center hover:bg-[#161716] transition-colors cursor-pointer group"
+                  >
+                    <span className="font-bold flex items-center gap-1">
+                      {item.pos === 1 ? (
+                        <span className="text-amber-400 font-bold">🥇 1</span>
+                      ) : item.pos === 2 ? (
+                        <span className="text-slate-300 font-bold">🥈 2</span>
+                      ) : item.pos === 3 ? (
+                        <span className="text-amber-600 font-bold">🥉 3</span>
+                      ) : (
+                        <span className="text-muted-foreground">#{item.pos}</span>
+                      )}
+                    </span>
+                    <div>
+                      <span className="font-serif text-sm text-foreground group-hover:text-crimson font-medium block transition-colors">
+                        {item.name}
+                      </span>
+                      {item.studentClass && (
+                        <span className="text-[10px] text-muted-foreground">{item.studentClass}</span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 bg-[#181918] border border-border text-muted-foreground inline-block w-fit">
+                      {item.kind === 'team' ? `TEAM (${item.teamSize ?? 2})` : 'SOLO'}
+                    </span>
+                    <span className="text-muted-foreground text-xs">Stage 0{item.currentStage}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-1.5 bg-[#151514] rounded-full overflow-hidden border border-border">
+                        <div
+                          className="h-full bg-emerald-500"
+                          style={{ width: `${item.completionPercentage}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        {item.stagesCompleted}/7
+                      </span>
+                    </div>
+                    <span className="text-right text-foreground font-bold">{item.score} pts</span>
+                    <span className="text-right text-[10px] text-muted-foreground">
+                      {item.lastProgress ? formatToIST(item.lastProgress) : '—'}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="p-10 text-center text-muted-foreground font-mono text-xs">
+                  <p>No verified public participants recorded under this filter.</p>
+                  <p className="text-[11px] text-muted-foreground/70 mt-1">
+                    Leaderboard records reflect live solves as eligible students submit verified stage answers.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Scoring Explanation & Rules Card */}
+      <div className="mt-8 p-5 bg-[#141514] border border-[#2a2927] space-y-3 font-mono text-xs">
+        <div className="flex items-center gap-2 text-foreground font-bold uppercase tracking-wider border-b border-border pb-2">
+          <Info size={14} className="text-crimson" />
+          <span>Case TLS-0017 Scoring Model &amp; Point Breakdown</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-muted-foreground text-[11px] leading-relaxed">
+          <div className="p-3 bg-[#0e0f0e] border border-border space-y-1">
+            <strong className="text-foreground block">1. Base Challenge Points</strong>
+            <span>100 points awarded for every verified stage clearance across Stages 01 through 07 (700 base points total).</span>
+          </div>
+          <div className="p-3 bg-[#0e0f0e] border border-border space-y-1">
+            <strong className="text-foreground block">2. Hourly Speed Bonus</strong>
+            <span>Up to +24 bonus points per stage for early puzzle submission (1 pt per hour remaining in the 48h wave window).</span>
+          </div>
+          <div className="p-3 bg-[#0e0f0e] border border-border space-y-1">
+            <strong className="text-foreground block">3. Target Intercept Bonus</strong>
+            <span>+20 bonus points on Stage 04 for correctly deducing and designating Site 04 (Presidio Observation Outpost).</span>
+          </div>
+        </div>
+        <div className="text-[10px] text-muted-foreground flex justify-between items-center pt-1 border-t border-[#222120]">
+          <span>Maximum theoretical score: 888 points</span>
+          <span className="text-amber-400">Ties resolved chronologically by earliest verified solve timestamp</span>
+        </div>
+      </div>
+
+      {/* Investigator / Team Profile Modal */}
+      {selectedProfile && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-[#141514] border border-border max-w-md w-full p-6 space-y-5 text-foreground shadow-2xl relative font-mono text-xs">
+            <button
+              onClick={() => setSelectedProfile(null)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-white"
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-border pb-3">
+              <div className="size-10 rounded-full bg-crimson/20 border border-crimson text-crimson flex items-center justify-center font-bold text-sm">
+                #{selectedProfile.pos}
+              </div>
+              <div>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-bold">
+                  {selectedProfile.kind === 'team' ? 'TEAM RECONNAISSANCE UNIT' : 'SOLO INVESTIGATOR'}
+                </span>
+                <h3 className="font-serif text-xl font-light text-foreground">{selectedProfile.name}</h3>
+              </div>
+            </div>
+
+            <div className="space-y-2 bg-[#0e0f0e] p-4 border border-border">
+              <div className="flex justify-between border-b border-[#222120] pb-1.5">
+                <span className="text-muted-foreground">TOTAL SCORE:</span>
+                <span className="font-bold text-crimson">{selectedProfile.score} PTS</span>
+              </div>
+              <div className="flex justify-between border-b border-[#222120] pb-1.5">
+                <span className="text-muted-foreground">STAGES CLEARED:</span>
+                <span className="text-foreground">{selectedProfile.stagesCompleted} of 07</span>
+              </div>
+              <div className="flex justify-between border-b border-[#222120] pb-1.5">
+                <span className="text-muted-foreground">CURRENT ACTIVE SECTOR:</span>
+                <span className="text-foreground">Sector 0{selectedProfile.currentStage}</span>
+              </div>
+              <div className="flex justify-between border-b border-[#222120] pb-1.5">
+                <span className="text-muted-foreground">COMPLETION:</span>
+                <span className="text-emerald-400 font-bold">{selectedProfile.completionPercentage}%</span>
+              </div>
+              {selectedProfile.studentClass && (
+                <div className="flex justify-between border-b border-[#222120] pb-1.5">
+                  <span className="text-muted-foreground">DIVISION / CLASS:</span>
+                  <span className="text-foreground">{selectedProfile.studentClass}</span>
+                </div>
+              )}
+              {selectedProfile.members && (
+                <div className="flex justify-between border-b border-[#222120] pb-1.5">
+                  <span className="text-muted-foreground">ENROLLED MEMBERS:</span>
+                  <span className="text-foreground">{selectedProfile.members.join(', ')}</span>
+                </div>
+              )}
+              <div className="flex justify-between pt-1 text-[11px]">
+                <span className="text-muted-foreground">LAST VERIFIED ACTIVITY:</span>
+                <span className="text-foreground">
+                  {selectedProfile.lastProgress ? formatToIST(selectedProfile.lastProgress) : 'Record Sealed'}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={() => setSelectedProfile(null)}
+                className="button button-secondary w-full text-xs font-mono py-2"
+              >
+                Close Investigator Docket
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

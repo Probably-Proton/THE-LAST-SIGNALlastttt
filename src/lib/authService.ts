@@ -235,6 +235,28 @@ export async function registerUser(params: RegisterParams): Promise<AuthResult> 
           localStorage.setItem('tls_callsign_email_' + cleanCallSign.toLowerCase(), cleanEmail);
         } catch {}
 
+        const isDevOrExcluded =
+          cleanEmail === 'rudrapratapj.0562@gmail.com' ||
+          cleanEmail === 'rudrapratapf.0562@gmail.com';
+
+        // Defensively ensure public.profiles record exists if DB trigger execution had an issue
+        try {
+          await supabase.from('profiles').upsert(
+            {
+              id: data.user.id,
+              username: cleanCallSign,
+              full_name: fullName.trim(),
+              student_class: studentClass,
+              admission_hash: admissionHash,
+              admission_masked: maskedAdmission,
+              exclude_from_leaderboard: isDevOrExcluded,
+            },
+            { onConflict: 'id' }
+          );
+        } catch (profileErr) {
+          console.warn('[authService] Defensive profile check notice:', profileErr);
+        }
+
         const userObj: PrototypeUser = {
           id: data.user.id,
           fullName: fullName.trim(),
@@ -245,12 +267,17 @@ export async function registerUser(params: RegisterParams): Promise<AuthResult> 
           admissionHash,
           callSign: cleanCallSign,
           passwordHash,
+          excludeFromLeaderboard: isDevOrExcluded,
           registeredAt: data.user.created_at || new Date().toISOString(),
         };
 
         // Cache locally for fast UI hydration
         setLocalActiveSession(userObj);
-        saveUserProgress(createInitialProgress(cleanCallSign));
+        const initProg = createInitialProgress(cleanCallSign);
+        if (isDevOrExcluded) {
+          initProg.excludeFromLeaderboard = true;
+        }
+        saveUserProgress(initProg);
 
         return {
           success: true,
@@ -278,6 +305,13 @@ export async function registerUser(params: RegisterParams): Promise<AuthResult> 
     callSign: cleanCallSign,
     passwordPlain,
   });
+
+  if (
+    localResult.user &&
+    (cleanEmail === 'rudrapratapj.0562@gmail.com' || cleanEmail === 'rudrapratapf.0562@gmail.com')
+  ) {
+    localResult.user.excludeFromLeaderboard = true;
+  }
 
   return {
     ...localResult,

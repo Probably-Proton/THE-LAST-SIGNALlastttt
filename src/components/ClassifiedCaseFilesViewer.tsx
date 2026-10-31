@@ -28,6 +28,7 @@ import {
   FileText,
   FolderOpen,
   Image as ImageIcon,
+  Layers,
   Lock,
   Maximize2,
   Minimize2,
@@ -42,6 +43,8 @@ import {
 } from 'lucide-react';
 import {
   CLASSIFIED_CASE_DOCUMENTS,
+  ARCHIVAL_FACSIMILE_DOCUMENTS,
+  getCaseDocuments,
   type CaseDocumentItem,
 } from '@/src/lib/caseDocuments';
 import { tacticalAudio } from '@/src/lib/tacticalAudio';
@@ -58,42 +61,69 @@ export function ClassifiedCaseFilesViewer({
   onReturnToDirective,
   isModal = false,
 }: ClassifiedCaseFilesViewerProps) {
-  const [selectedId, setSelectedId] = useState<string>(
-    () => initialDocId || CLASSIFIED_CASE_DOCUMENTS[0].id
-  );
-  const [viewMode, setViewMode] = useState<'transcript' | 'scan'>('transcript');
+  // Collection state: 'directive' (Declassified Transcripts) vs 'archival' (Original Facsimiles / Plates)
+  const [collectionMode, setCollectionMode] = useState<'directive' | 'archival'>(() => {
+    if (initialDocId && initialDocId.startsWith('arch-')) return 'archival';
+    return 'directive';
+  });
+
+  const activeDocuments = getCaseDocuments(collectionMode);
+
+  // Track selected index so switching collections updates the document menu and inspection canvas synchronously
+  const [selectedIndex, setSelectedIndex] = useState<number>(() => {
+    if (initialDocId) {
+      const idx1 = CLASSIFIED_CASE_DOCUMENTS.findIndex((d) => d.id === initialDocId);
+      if (idx1 !== -1) return idx1;
+      const idx2 = ARCHIVAL_FACSIMILE_DOCUMENTS.findIndex((d) => d.id === initialDocId);
+      if (idx2 !== -1) return idx2;
+    }
+    return 0;
+  });
+
   const [scanZoom, setScanZoom] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const currentDocIndex = CLASSIFIED_CASE_DOCUMENTS.findIndex((d) => d.id === selectedId);
-  const currentDoc =
-    currentDocIndex !== -1 ? CLASSIFIED_CASE_DOCUMENTS[currentDocIndex] : CLASSIFIED_CASE_DOCUMENTS[0];
+  const safeIndex = selectedIndex >= 0 && selectedIndex < activeDocuments.length ? selectedIndex : 0;
+  const currentDoc = activeDocuments[safeIndex];
 
-  const handleSelectDoc = (id: string) => {
+  const handleSelectDocIndex = (idx: number) => {
     tacticalAudio.playDocOpen();
-    setSelectedId(id);
+    setSelectedIndex(idx);
     setScanZoom(1);
   };
 
+  const handleSwitchCollection = (newMode: 'directive' | 'archival') => {
+    tacticalAudio.playButtonClick();
+    setCollectionMode(newMode);
+    setScanZoom(1);
+    // Keep selected index within bounds
+    const targetDocs = getCaseDocuments(newMode);
+    if (safeIndex >= targetDocs.length) {
+      setSelectedIndex(0);
+    }
+  };
+
   const handleNextDoc = () => {
-    const nextIndex = (currentDocIndex + 1) % CLASSIFIED_CASE_DOCUMENTS.length;
-    handleSelectDoc(CLASSIFIED_CASE_DOCUMENTS[nextIndex].id);
+    const nextIndex = (safeIndex + 1) % activeDocuments.length;
+    handleSelectDocIndex(nextIndex);
   };
 
   const handlePrevDoc = () => {
-    const prevIndex =
-      (currentDocIndex - 1 + CLASSIFIED_CASE_DOCUMENTS.length) % CLASSIFIED_CASE_DOCUMENTS.length;
-    handleSelectDoc(CLASSIFIED_CASE_DOCUMENTS[prevIndex].id);
+    const prevIndex = (safeIndex - 1 + activeDocuments.length) % activeDocuments.length;
+    handleSelectDocIndex(prevIndex);
   };
 
   // Filtered documents for search
-  const filteredDocs = CLASSIFIED_CASE_DOCUMENTS.filter(
-    (d) =>
-      d.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.caseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.victimName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.summary.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredDocs = activeDocuments
+    .map((doc, idx) => ({ doc, originalIndex: idx }))
+    .filter(
+      ({ doc }) =>
+        doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.caseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.victimName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.shortTitle.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
   return (
     <div className="flex flex-col bg-[#0a0c0a] text-[#ebe6dc] border border-[#2b3a30] shadow-[0_0_50px_rgba(10,35,18,0.5)] font-mono text-xs overflow-hidden">
@@ -119,35 +149,29 @@ export function ClassifiedCaseFilesViewer({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Dual Inspection Mode Switcher */}
+          {/* Dual Collection Switcher */}
           <div className="flex items-center bg-[#0d120e] border border-[#233327] p-0.5">
             <button
-              onClick={() => {
-                tacticalAudio.playButtonClick();
-                setViewMode('transcript');
-              }}
+              onClick={() => handleSwitchCollection('directive')}
               className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold transition-colors ${
-                viewMode === 'transcript'
+                collectionMode === 'directive'
                   ? 'bg-[#1e2e22] text-[#8deb9e] shadow'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <FileText size={13} />
-              <span>Declassified Transcript</span>
+              <span>1. First Directive Dossiers ({CLASSIFIED_CASE_DOCUMENTS.length})</span>
             </button>
             <button
-              onClick={() => {
-                tacticalAudio.playButtonClick();
-                setViewMode('scan');
-              }}
+              onClick={() => handleSwitchCollection('archival')}
               className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold transition-colors ${
-                viewMode === 'scan'
-                  ? 'bg-crimson/25 text-red-200 border border-crimson/40 shadow'
+                collectionMode === 'archival'
+                  ? 'bg-amber-950/80 text-amber-300 border border-amber-600/60 shadow'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <ImageIcon size={13} />
-              <span>Archival Scan Facsimile</span>
+              <Layers size={13} />
+              <span>2. Archival Facsimile Plates ({ARCHIVAL_FACSIMILE_DOCUMENTS.length})</span>
             </button>
           </div>
 
@@ -173,17 +197,28 @@ export function ClassifiedCaseFilesViewer({
           {/* Section Banner */}
           <div className="p-3.5 border-b border-[#233327] bg-[#121914] space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-[#8deb9e] flex items-center gap-1.5">
-                <FolderOpen size={13} />
-                <span>FIRST DIRECTIVE DOSSIERS ({CLASSIFIED_CASE_DOCUMENTS.length})</span>
+              <span className={`text-[10px] uppercase font-bold tracking-wider flex items-center gap-1.5 ${
+                collectionMode === 'directive' ? 'text-[#8deb9e]' : 'text-amber-400'
+              }`}>
+                {collectionMode === 'directive' ? <FolderOpen size={13} /> : <Layers size={13} />}
+                <span>
+                  {collectionMode === 'directive'
+                    ? `FIRST DIRECTIVE DOSSIERS (${activeDocuments.length})`
+                    : `ARCHIVAL FACSIMILE PLATES (${activeDocuments.length})`}
+                </span>
               </span>
-              <span className="text-[9px] px-1.5 py-0.5 bg-[#1b2b1f] text-[#8deb9e] border border-[#2b4432]">
-                DEEP ARCHIVE
+              <span className={`text-[9px] px-1.5 py-0.5 border font-mono ${
+                collectionMode === 'directive'
+                  ? 'bg-[#1b2b1f] text-[#8deb9e] border-[#2b4432]'
+                  : 'bg-amber-950/60 text-amber-300 border-amber-700/60'
+              }`}>
+                {collectionMode === 'directive' ? 'DECLASSIFIED' : 'FACSIMILE'}
               </span>
             </div>
             <p className="text-[10px] text-muted-foreground leading-normal m-0">
-              {CLASSIFIED_CASE_DOCUMENTS.length} declassified overview records from 1968–1969 incidents. Review before proceeding to
-              Stage 01 vault dockets.
+              {collectionMode === 'directive'
+                ? 'Declassified departmental transcripts from 1968–1969 incidents with verbatim typographical evidence.'
+                : 'Original high-resolution photographic negatives, teletype dispatch ribbons, and lab access worksheets.'}
             </p>
           </div>
 
@@ -196,7 +231,11 @@ export function ClassifiedCaseFilesViewer({
               />
               <input
                 type="text"
-                placeholder="Search case #, victim, location..."
+                placeholder={
+                  collectionMode === 'directive'
+                    ? 'Search case #, victim, location...'
+                    : 'Search plate #, specimen, negative...'
+                }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-[#111713] border border-[#243328] pl-7 pr-2 py-1.5 text-[11px] text-[#ebe6dc] focus:outline-none focus:border-[#8deb9e]"
@@ -214,29 +253,39 @@ export function ClassifiedCaseFilesViewer({
 
           {/* Document Tabs List */}
           <div className="flex-1 overflow-y-auto divide-y divide-[#1b261e] p-2 space-y-1">
-            {filteredDocs.map((doc, idx) => {
-              const isSelected = doc.id === currentDoc.id;
+            {filteredDocs.map(({ doc, originalIndex }) => {
+              const isSelected = originalIndex === safeIndex;
               return (
                 <button
                   key={doc.id}
-                  onClick={() => handleSelectDoc(doc.id)}
+                  onClick={() => handleSelectDocIndex(originalIndex)}
                   className={`w-full text-left p-3 transition-colors flex flex-col gap-1 border ${
                     isSelected
-                      ? 'bg-[#18261c] border-[#3e6849] shadow-[0_0_15px_rgba(62,104,73,0.3)]'
+                      ? collectionMode === 'directive'
+                        ? 'bg-[#18261c] border-[#3e6849] shadow-[0_0_15px_rgba(62,104,73,0.3)]'
+                        : 'bg-[#22180f] border-[#7d5023] shadow-[0_0_15px_rgba(125,80,35,0.3)]'
                       : 'bg-[#0f1410] border-[#1d2920] hover:bg-[#141b16] hover:border-[#273a2c]'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span
                       className={`text-[10px] font-bold tracking-wider ${
-                        isSelected ? 'text-[#8deb9e]' : 'text-muted-foreground'
+                        isSelected
+                          ? collectionMode === 'directive'
+                            ? 'text-[#8deb9e]'
+                            : 'text-amber-400'
+                          : 'text-muted-foreground'
                       }`}
                     >
-                      FILE 0{doc.documentNumber} // {doc.caseNumber}
+                      {collectionMode === 'directive' ? `FILE 0${doc.documentNumber}` : `PLATE 0${doc.documentNumber}`} // {doc.caseNumber}
                     </span>
                     {doc.isDraftOrCorrupted ? (
                       <span className="text-[9px] px-1 py-0.2 text-amber-300 bg-amber-950/60 border border-amber-600/40">
                         GLITCHED / DRAFT
+                      </span>
+                    ) : collectionMode === 'archival' ? (
+                      <span className="text-[9px] px-1 py-0.2 text-amber-400 bg-amber-950/40 border border-amber-700/40">
+                        ARCHIVAL SPECIMEN
                       </span>
                     ) : (
                       <span className="text-[9px] px-1 py-0.2 text-emerald-400 bg-emerald-950/60 border border-emerald-600/30">
@@ -245,12 +294,12 @@ export function ClassifiedCaseFilesViewer({
                     )}
                   </div>
                   <div className="font-serif text-[13px] font-normal text-[#e8e2d5] truncate">
-                    {doc.victimName}
+                    {doc.shortTitle || doc.title}
                   </div>
                   <div className="text-[10px] text-muted-foreground flex items-center justify-between pt-0.5">
-                    <span>{doc.dateOfIncident}</span>
-                    <span className="text-[9px] uppercase tracking-wide opacity-80">
-                      {doc.agencyHeader.dept.split('•')[0].trim().slice(0, 18)}
+                    <span>{doc.dateOfIncident.split('/')[0].trim()}</span>
+                    <span className="text-[9px] uppercase tracking-wide opacity-80 truncate max-w-[120px]">
+                      {doc.agencyHeader.dept.split('•')[0].trim()}
                     </span>
                   </div>
                 </button>
@@ -266,8 +315,8 @@ export function ClassifiedCaseFilesViewer({
             >
               ← Previous File
             </button>
-            <span className="text-[#8deb9e] font-bold">
-              0{currentDoc.documentNumber} / 0{CLASSIFIED_CASE_DOCUMENTS.length}
+            <span className={collectionMode === 'directive' ? 'text-[#8deb9e] font-bold' : 'text-amber-400 font-bold'}>
+              0{currentDoc.documentNumber} / 0{activeDocuments.length}
             </span>
             <button
               onClick={handleNextDoc}
@@ -282,7 +331,7 @@ export function ClassifiedCaseFilesViewer({
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#070908] flex flex-col justify-between">
           <div className="max-w-4xl w-full mx-auto space-y-6">
             {/* Context alert for glitched vs standard versions (Docs 2 & 4) */}
-            {currentDoc.id === 'sol-1968-1220-draft' && (
+            {currentDoc.id.includes('1220-draft') && (
               <div className="p-3.5 bg-amber-950/40 border border-amber-700/60 text-amber-200 text-xs flex items-start gap-3">
                 <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />
                 <div className="space-y-1">
@@ -300,7 +349,7 @@ export function ClassifiedCaseFilesViewer({
               </div>
             )}
 
-            {currentDoc.id === 'sol-1968-1220-std' && (
+            {currentDoc.id.includes('1220-std') && (
               <div className="p-3 bg-emerald-950/30 border border-emerald-700/50 text-emerald-200 text-xs flex items-start gap-3">
                 <FileCheck size={18} className="text-emerald-400 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
@@ -319,47 +368,61 @@ export function ClassifiedCaseFilesViewer({
             {/* Document Header Controls */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#233327] pb-3 text-xs">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 bg-[#17231a] text-[#8deb9e] border border-[#2c4b34] font-bold">
-                  CASE FILE {currentDoc.caseNumber}
+                <span className={`px-2 py-0.5 border font-bold ${
+                  collectionMode === 'directive'
+                    ? 'bg-[#17231a] text-[#8deb9e] border-[#2c4b34]'
+                    : 'bg-amber-950/40 text-amber-300 border-amber-700/50'
+                }`}>
+                  {collectionMode === 'directive' ? 'CASE FILE' : 'ARCHIVAL SPECIMEN'} {currentDoc.caseNumber}
                 </span>
                 <span className="text-muted-foreground hidden sm:inline">
                   • Incident Date: {currentDoc.dateOfIncident}
                 </span>
               </div>
 
-              {viewMode === 'scan' && (
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground text-[11px]">Zoom:</span>
-                  <button
-                    onClick={() => setScanZoom((z) => Math.max(0.7, +(z - 0.2).toFixed(1)))}
-                    className="p-1 border border-[#233327] hover:border-[#8deb9e] text-muted-foreground hover:text-white"
-                    title="Zoom Out"
-                  >
-                    <ZoomOut size={13} />
-                  </button>
-                  <span className="font-mono text-[10px] text-[#8deb9e] w-12 text-center">
-                    {Math.round(scanZoom * 100)}%
-                  </span>
-                  <button
-                    onClick={() => setScanZoom((z) => Math.min(2.5, +(z + 0.2).toFixed(1)))}
-                    className="p-1 border border-[#233327] hover:border-[#8deb9e] text-muted-foreground hover:text-white"
-                    title="Zoom In"
-                  >
-                    <ZoomIn size={13} />
-                  </button>
-                  <button
-                    onClick={() => setScanZoom(1)}
-                    className="p-1 border border-[#233327] hover:border-[#8deb9e] text-muted-foreground hover:text-white text-[10px]"
-                    title="Reset Zoom"
-                  >
-                    Reset
-                  </button>
-                </div>
-              )}
+              {/* View mode toggle for directive collection or zoom controls for archival scans */}
+              <div className="flex items-center gap-2">
+                {collectionMode === 'archival' ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground text-[11px]">Scan Zoom:</span>
+                    <button
+                      onClick={() => setScanZoom((z) => Math.max(0.7, +(z - 0.2).toFixed(1)))}
+                      className="p-1 border border-[#233327] hover:border-amber-400 text-muted-foreground hover:text-white"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut size={13} />
+                    </button>
+                    <span className="font-mono text-[10px] text-amber-300 w-12 text-center">
+                      {Math.round(scanZoom * 100)}%
+                    </span>
+                    <button
+                      onClick={() => setScanZoom((z) => Math.min(2.5, +(z + 0.2).toFixed(1)))}
+                      className="p-1 border border-[#233327] hover:border-amber-400 text-muted-foreground hover:text-white"
+                      title="Zoom In"
+                    >
+                      <ZoomIn size={13} />
+                    </button>
+                    <button
+                      onClick={() => setScanZoom(1)}
+                      className="p-1 border border-[#233327] hover:border-amber-400 text-muted-foreground hover:text-white text-[10px]"
+                      title="Reset Zoom"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center bg-[#0d120e] border border-[#233327] p-0.5">
+                    <span className="text-[10px] text-muted-foreground px-2">Format:</span>
+                    <span className="text-[10px] text-[#8deb9e] bg-[#1a2b1e] border border-[#29422f] px-2 py-0.5 font-bold">
+                      Typewriter Transcript
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* 1. VIEW MODE: DECLASSIFIED TRANSCRIPTION (TYPEWRITER SHEET) */}
-            {viewMode === 'transcript' ? (
+            {collectionMode === 'directive' ? (
               <div
                 className="relative bg-[#ebe4d3] text-[#1c1917] p-6 sm:p-10 md:p-12 shadow-[0_15px_40px_rgba(0,0,0,0.6)] border border-[#c4baa1] font-mono leading-relaxed"
                 style={{
@@ -567,7 +630,7 @@ export function ClassifiedCaseFilesViewer({
           {/* Bottom Directive Return & Progression Action */}
           <div className="mt-8 pt-4 border-t border-[#233327] flex flex-col sm:flex-row items-center justify-between gap-4 max-w-4xl w-full mx-auto">
             <div className="text-[11px] text-muted-foreground">
-              Reviewing classified record <strong>0{currentDoc.documentNumber} of 0{CLASSIFIED_CASE_DOCUMENTS.length}</strong>. Ready to
+              Reviewing classified record <strong>0{currentDoc.documentNumber} of 0{activeDocuments.length}</strong>. Ready to
               solve Stage 01?
             </div>
             <div className="flex items-center gap-3 w-full sm:w-auto">

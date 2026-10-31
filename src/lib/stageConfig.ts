@@ -39,23 +39,22 @@ export const GAME_LAUNCH_IST = '01 Nov 2026, 00:00:00 IST';
 
 /**
  * Master gate control for timeline blocking enforcement.
- * Set to TRUE for the PRE-REGISTRATION-ONLY release.
- * Students can pre-register accounts, but the live game is locked until official launch.
+ * Set to FALSE: The investigation is officially LIVE and OPEN to all students.
  */
-export const ENABLE_TIMELINE_GATES = true;
+export const ENABLE_TIMELINE_GATES = false;
 
 /**
  * Check whether investigator registration has officially opened in IST.
- * In this Pre-Registration release, student registration is actively open.
+ * In this live release, student registration is actively open.
  */
 export function isRegistrationOpen(referenceTime = new Date()): boolean {
   if (!ENABLE_TIMELINE_GATES) return true;
-  return referenceTime.getTime() >= new Date(REGISTRATION_OPEN_ISO).getTime() || true;
+  return referenceTime.getTime() >= new Date(REGISTRATION_OPEN_ISO).getTime();
 }
 
 /**
  * Check whether the main game investigation has officially launched in IST.
- * Prior to GAME_LAUNCH_ISO (01 Nov 2026, 00:00:00 IST), this evaluates strictly to false.
+ * Evaluates to true for the live investigation.
  */
 export function isGameLaunched(referenceTime = new Date()): boolean {
   if (!ENABLE_TIMELINE_GATES) return true;
@@ -67,7 +66,7 @@ export const TARGET_INTERCEPT_BONUS = 20;
 
 /**
  * Check whether a stage is open for access based on player progression and schedule.
- * Prior to official launch, ALL stages remain sealed.
+ * When the investigation is live, an operative can access any stage up to stagesCompleted + 1.
  */
 export function isStageAccessible(
   stageNumber: number,
@@ -82,6 +81,7 @@ export function isStageAccessible(
     return false;
   }
   if (stageNumber <= stagesCompleted + 1) {
+    if (!ENABLE_TIMELINE_GATES) return true;
     const stage = STAGE_SCHEDULE.find((s) => s.number === stageNumber);
     if (!stage) return false;
     return referenceTime.getTime() >= new Date(stage.openIso).getTime();
@@ -96,6 +96,7 @@ export function isStageScoringEligible(
   stageNumber: number,
   referenceTime = new Date()
 ): boolean {
+  if (!ENABLE_TIMELINE_GATES) return true;
   const stage = STAGE_SCHEDULE.find((s) => s.number === stageNumber);
   if (!stage) return true;
   return referenceTime.getTime() <= new Date(stage.deadlineIso).getTime();

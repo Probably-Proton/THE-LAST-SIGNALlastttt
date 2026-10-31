@@ -1307,3 +1307,151 @@ export function EllenValeJournalDoc({ item }: { item: EvidenceItem }) {
   );
 }
 
+/**
+ * EV-0702 — Chronicle Final Edition: Police Recruit Found Dead Inside Station
+ * & Department Incident Investigation Report
+ */
+export function StationIncidentReportDoc({
+  item,
+  page = 0,
+}: {
+  item: EvidenceItem;
+  page?: number;
+}) {
+  if (page === 1) {
+    return (
+      <div className="paper-sheet p-8 md:p-14 relative text-ink space-y-6">
+        <div className="border-b-2 border-ink pb-4 flex flex-wrap justify-between items-start gap-4">
+          <div>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-ink/70 block">
+              DEPARTMENTAL INTERNAL AFFAIRS // INCIDENT REPORT
+            </span>
+            <h2 className="font-serif text-3xl font-bold text-ink mt-0.5">
+              Incident Report: Archive Vault Sealing Order
+            </h2>
+            <p className="font-mono text-xs text-ink/70 mt-1">
+              CASE REF: TLS-0017 / STATION DISPATCH // CLASSIFICATION: CONFIDENTIAL
+            </p>
+          </div>
+          <span className="stamp text-crimson border-crimson text-xs">OFFICIAL INQUIRY</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#e4dcbf]/50 border border-ink/30 p-3 font-mono text-[11px]">
+          <div>
+            <span className="block text-ink/60 uppercase">Date of Discovery</span>
+            <span className="font-semibold text-ink">24 Oct 2026, 04:15 IST</span>
+          </div>
+          <div>
+            <span className="block text-ink/60 uppercase">Location</span>
+            <span className="font-semibold text-ink">Lower Archival Vault B</span>
+          </div>
+          <div>
+            <span className="block text-ink/60 uppercase">Subject</span>
+            <span className="font-semibold text-ink">Police Recruit (Records Duty)</span>
+          </div>
+          <div>
+            <span className="block text-ink/60 uppercase">Status</span>
+            <span className="font-semibold text-crimson">SEALED BY ORDER</span>
+          </div>
+        </div>
+
+        <div className="space-y-4 font-mono text-xs leading-relaxed text-ink/90">
+          <p>
+            <strong>1. INITIAL FINDINGS:</strong> During scheduled duty handover in the lower basement records wing, station personnel discovered the unresponsive body of a 22-year-old police recruit. The recruit had been reviewing Case 17 historical correspondence dockets and comparing early telegraphic logs against the 1974 series.
+          </p>
+          <p>
+            <strong>2. PHYSICAL RECOVERIES:</strong> A portable radio receiver was found on the floor tuned to an uncatalogued coastal frequency (408.000 MHz). Adjacent teletype equipment had printed repetitive sequence bursts until circuit cutoff. No signs of struggle or forced entry were evident.
+          </p>
+          <p>
+            <strong>3. EXECUTIVE DIRECTIVE:</strong> By order of the Director of Archival Inquiries, all Case 17 dockets and research journals are sealed immediately. Participating student investigators must conclude active operations and report to emergency debriefing for case evaluation.
+          </p>
+        </div>
+
+        <div className="pt-6 border-t-2 border-ink flex justify-between items-end font-mono text-xs">
+          <div>
+            <div className="text-[10px] text-ink/60 uppercase">Reporting Inspector</div>
+            <div className="font-serif text-base italic font-bold">Office of the Director</div>
+            <div className="text-[10px] text-ink/75">Forensic Chain-of-Custody Command</div>
+          </div>
+          <span className="stamp text-crimson border-crimson text-[10px]">CASE 17 TERMINATED</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="paper-sheet p-8 md:p-14 relative text-ink space-y-6">
+      {/* Broadsheet Masthead */}
+      <div className="border-b-4 border-double border-ink pb-3 text-center">
+        <h2 className="font-serif text-4xl sm:text-5xl font-black uppercase tracking-tight text-ink">
+          The San Francisco Chronicle
+        </h2>
+        <div className="flex justify-between border-t border-b border-ink py-1 my-2 font-mono text-[10px] uppercase tracking-widest text-ink/80">
+          <span>SATURDAY, OCTOBER 24, 2026</span>
+          <span>SPECIAL INVESTIGATION DISPATCH</span>
+          <span>FINAL LATE EDITION</span>
+        </div>
+      </div>
+
+      {/* Main Climax Headline */}
+      <div className="my-6 border-b-2 border-ink pb-4 text-center space-y-2">
+        <h3 className="font-serif text-3xl sm:text-4xl font-black uppercase text-ink tracking-tight leading-tight">
+          POLICE RECRUIT FOUND DEAD INSIDE STATION
+        </h3>
+        <p className="font-serif text-base italic text-ink/80 max-w-2xl mx-auto">
+          Internal inquiry launched as anomalous radio signals and altered historic records surface in Case 17.
+        </p>
+      </div>
+
+      {/* Two Column News Story */}
+      <div className="grid md:grid-cols-2 gap-8 text-xs font-serif leading-relaxed text-justify">
+        <div className="space-y-4">
+          <p className="first-letter:text-4xl first-letter:font-bold first-letter:float-left first-letter:mr-2">
+            SAN FRANCISCO — Early yesterday morning, station personnel conducting shift rotation in the lower
+            archival vault discovered the body of a 22-year-old police recruit assigned to Case 17 records duty.
+            Department officials confirmed that no signs of forced entry were found at the scene.
+          </p>
+          <p>
+            Recovered near the scene was a portable radio receiver tuned to an uncatalogued coastal frequency,
+            along with several historical case correspondence files originating from the autumn of 1974. Investigators
+            noted that a teletype terminal in an adjacent records room had been left operational, printing repetitive
+            transmissions until power was severed.
+          </p>
+          <div className="p-3 bg-black/5 border-l-2 border-crimson font-mono text-[11px] my-3">
+            <strong>PRESS DISPATCH NOTE:</strong> Archival inquiries into the 408-symbol cipher and the Presidio Heights
+            survey map are now subject to strict internal lockdown by order of the Director.
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <p>
+            "The recruit was conducting an authorized review of catalogued evidence," stated a departmental spokesperson
+            during a brief press assembly. "Preliminary findings suggest the individual encountered anomalous structural
+            notes affixed to historical records."
+          </p>
+          <p>
+            Independent radio operators across the Bay Area reported sporadic pulse transmissions on non-standard
+            frequencies in the hours preceding the discovery. When asked regarding the contents of recovered audio tapes
+            and the research journal of Ellen Vale, authorities declined comment, citing classified status.
+          </p>
+          <p>
+            With the conclusion of this inquiry, all student investigators participating in the digital archival
+            examination are instructed to inspect the final ending transmission reel and submit their final deduction
+            dossiers for official certification.
+          </p>
+          <div className="p-3 bg-red-950/10 border border-crimson/40 font-mono text-[11px] text-crimson">
+            <strong>DIRECTOR'S BULLETIN:</strong> All operative credentials have been scheduled for debriefing evaluation.
+            Proceed to the Debrief Terminal to record final findings.
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-ink/40 flex justify-between font-mono text-[10px] text-ink/70 uppercase">
+        <span>PRESS REGISTRY: SF CHRONICLE NO. 74-1024</span>
+        <span>EVIDENCE FILE: EV-0702</span>
+      </div>
+    </div>
+  );
+}
+
+
