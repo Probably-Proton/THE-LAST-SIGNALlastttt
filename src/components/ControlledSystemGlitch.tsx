@@ -2,19 +2,25 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
- * CONTROLLED FORENSIC GLITCH COMPONENT (STAGE 6 / 7)
+ * THE LAST SIGNAL — CINEMATIC SYSTEM FAILURE & CORRUPTION SEQUENCE
  * 
- * Cinematic glitch sequence featuring:
- * - Unpredictable repeating loop of ~0.5s sharp, high-pitched electronic bursts followed by silence.
- * - Dynamic visual distortion (flicker, horizontal screen tearing, chromatic RGB displacement,
- *   scanline jitter) strictly synchronized to the audio burst state.
- * - Unpredictable variation in timing, displacement, and telemetry readouts.
- * - Absolute audio safety: immediate stop of all sounds on completion, skip, dismissal, or unmount.
- * - Full support for Reduced Scare Mode and prefers-reduced-motion.
+ * Stage 7 Ending Glitch & Post-Ending Transition:
+ * 1. Interface freezes briefly with frozen scanlines.
+ * 2. Rapid screen flicker with horizontal analog distortion.
+ * 3. Layered digital corruption audio bursts and carrier collapse.
+ * 4. Staccato tactical red error flashes:
+ *    - CONNECTION UNSTABLE
+ *    - TRANSMISSION CORRUPTED
+ *    - SYSTEM INTEGRITY: FAILED
+ *    - SIGNAL LOST
+ *    - INVESTIGATION TERMINATED
+ * 5. Dynamic fractured cracked-glass screen overlay.
+ * 6. CRT phosphor implosion into absolute dead silence.
+ * 7. Transitions into persistent Post-Ending Aftermath.
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { ShieldAlert, AlertTriangle, RefreshCw, XCircle, Terminal } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, RefreshCw, XCircle, Radio, Terminal } from 'lucide-react';
 import { tacticalAudio } from '../lib/tacticalAudio';
 
 export interface ControlledSystemGlitchProps {
@@ -24,29 +30,22 @@ export interface ControlledSystemGlitchProps {
   onDismiss?: () => void;
 }
 
-type GlitchPhase =
+type CorruptionStep =
   | 'idle'
-  | 'carrier_warning'
-  | 'active_glitching'
-  | 'final_interruption'
+  | 'initial_freeze'       // Step 1: Brief screen freeze (0.8s)
+  | 'flicker_tearing'       // Step 2: Screen flickering & horizontal tearing
+  | 'flashing_errors'       // Step 3: Rapid flashing of the 5 canonical red error alerts
+  | 'cracked_glass'         // Step 4: Fractured glass overlay developing across viewport
+  | 'phosphor_collapse'     // Step 5: Screen CRT collapse into white line & dot
+  | 'final_system_failure'  // Step 6: Final system failure message
   | 'resolved';
 
-interface GlitchJitterStyle {
-  skew: number;
-  offsetX: number;
-  offsetY: number;
-  rgbSplit: number;
-  tearTop: number;
-  tearHeight: number;
-  flickerOpacity: number;
-}
-
-const TELEMETRY_BURST_MSGS = [
-  'CARRIER FREQUENCY DRIFT: 3080Hz MISMATCH DETECTED',
-  'BUFFER OVERFLOW: REPOSITORY EMBARGO ENFORCED BY DIRECTORATE',
-  'ANOMALOUS TRANSMISSION INTERRUPT // REEL 0x17-TLS',
-  'PARITY COLLAPSE AT SECTOR 04 // AUDIO CARRIER SPIKE',
-  'DIRECTORATE LOCKDOWN: TERMINAL INPUT FORCED OFF',
+const FLASH_ERRORS = [
+  'CONNECTION UNSTABLE',
+  'TRANSMISSION CORRUPTED',
+  'SYSTEM INTEGRITY: FAILED',
+  'SIGNAL LOST',
+  'INVESTIGATION TERMINATED',
 ];
 
 export const ControlledSystemGlitch: React.FC<ControlledSystemGlitchProps> = ({
@@ -55,341 +54,333 @@ export const ControlledSystemGlitch: React.FC<ControlledSystemGlitchProps> = ({
   onComplete,
   onDismiss,
 }) => {
-  const [phase, setPhase] = useState<GlitchPhase>('idle');
-  const [isGlitchBurstActive, setIsGlitchBurstActive] = useState(false);
-  const [telemetryText, setTelemetryText] = useState('SYSTEM MONITOR: OK');
-  const [burstCount, setBurstCount] = useState(0);
-  const [jitter, setJitter] = useState<GlitchJitterStyle>({
+  const [step, setStep] = useState<CorruptionStep>('idle');
+  const [errorIndex, setErrorIndex] = useState(0);
+  const [flickerIntensity, setFlickerIntensity] = useState(1);
+  const [crackSpread, setCrackSpread] = useState(0); // 0 to 1
+  const [jitter, setJitter] = useState({
+    x: 0,
+    y: 0,
     skew: 0,
-    offsetX: 0,
-    offsetY: 0,
     rgbSplit: 0,
-    tearTop: 30,
-    tearHeight: 40,
-    flickerOpacity: 1,
+    barTop: 20,
+    barHeight: 30,
   });
 
   const timersRef = useRef<NodeJS.Timeout[]>([]);
-  const hasCompletedRef = useRef(false);
+  const hasFinishedRef = useRef(false);
 
-  const clearAllTimersAndSounds = useCallback(() => {
+  const clearAllTimers = useCallback(() => {
     timersRef.current.forEach((t) => clearTimeout(t));
     timersRef.current = [];
     tacticalAudio.stopAllGlitchSounds();
   }, []);
 
-  const handleSkipOrRecover = useCallback(() => {
-    if (hasCompletedRef.current) return;
-    hasCompletedRef.current = true;
-    clearAllTimersAndSounds();
-    tacticalAudio.playGlitchCutoff();
-    setPhase('resolved');
+  const handleBypass = useCallback(() => {
+    if (hasFinishedRef.current) return;
+    hasFinishedRef.current = true;
+    clearAllTimers();
+    tacticalAudio.playFinalInterruptedTransmission();
+    setStep('resolved');
     setTimeout(() => {
-      setPhase('idle');
+      setStep('idle');
       onComplete();
-    }, 200);
-  }, [clearAllTimersAndSounds, onComplete]);
-
-  // Check prefers-reduced-motion
-  const prefersReducedMotion =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }, 250);
+  }, [clearAllTimers, onComplete]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      clearAllTimersAndSounds();
+      clearAllTimers();
     };
-  }, [clearAllTimersAndSounds]);
+  }, [clearAllTimers]);
 
-  // Main glitch sequencer
+  // Sequence runner
   useEffect(() => {
     if (!isActive) {
-      setPhase('idle');
-      setIsGlitchBurstActive(false);
-      clearAllTimersAndSounds();
-      hasCompletedRef.current = false;
+      setStep('idle');
+      clearAllTimers();
+      hasFinishedRef.current = false;
       return;
     }
 
-    hasCompletedRef.current = false;
-    clearAllTimersAndSounds();
+    hasFinishedRef.current = false;
+    clearAllTimers();
 
-    // Reduced Scare Mode / Reduced Motion: clean, non-flashing teletype notice
+    // Prefer-reduced-motion check
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     if (reducedScareMode || prefersReducedMotion) {
-      setPhase('active_glitching');
-      setTelemetryText('DIRECTORATE EMBARGO: TERMINAL INPUT RESTRICTED');
+      setStep('final_system_failure');
       tacticalAudio.playGlitchHum();
-
       const t = setTimeout(() => {
-        handleSkipOrRecover();
-      }, 2800);
+        handleBypass();
+      }, 3000);
       timersRef.current.push(t);
       return;
     }
 
-    // Step 1: Initial subtle carrier warning (0ms -> 650ms)
-    setPhase('carrier_warning');
-    setTelemetryText('MONITORING ARCHIVAL REEL 0x17-TLS-VALE... [CARRIER LOCK]');
+    // Step 1: Initial Freeze (0.8s of eerie static tension)
+    setStep('initial_freeze');
     tacticalAudio.playGlitchHum();
 
-    // Step 2: Unpredictable repeating sound-and-silence sequence
-    const tStartGlitch = setTimeout(() => {
-      setPhase('active_glitching');
+    // Step 2: Flicker & Horizontal Distortion Tearing
+    const t1 = setTimeout(() => {
+      if (hasFinishedRef.current) return;
+      setStep('flicker_tearing');
+      tacticalAudio.playLayeredDigitalCorruption(0.65, 0.7);
 
-      let currentBurst = 0;
-      const MAX_BURSTS = 4;
+      setJitter({
+        x: 8,
+        y: -4,
+        skew: 2.5,
+        rgbSplit: 6,
+        barTop: 35,
+        barHeight: 50,
+      });
 
-      const runBurstCycle = () => {
-        if (hasCompletedRef.current) return;
-        currentBurst += 1;
-        setBurstCount(currentBurst);
+      // Step 3: Staccato Red Error Messages Flash Sequence
+      const t2 = setTimeout(() => {
+        if (hasFinishedRef.current) return;
+        setStep('flashing_errors');
 
-        // Sound duration ~0.48s - 0.52s
-        const soundDuration = 0.46 + Math.random() * 0.08;
+        let currentErr = 0;
+        const flashNextError = () => {
+          if (hasFinishedRef.current) return;
+          if (currentErr < FLASH_ERRORS.length) {
+            setErrorIndex(currentErr);
+            // Play coordinated layered corruption burst for each error
+            tacticalAudio.playLayeredDigitalCorruption(0.42, 0.85);
 
-        // Visual jitter parameters randomized per burst
-        setJitter({
-          skew: (Math.random() - 0.5) * 5.0, // -2.5deg to +2.5deg
-          offsetX: (Math.random() - 0.5) * 16, // -8px to +8px
-          offsetY: (Math.random() - 0.5) * 8, // -4px to +4px
-          rgbSplit: 3 + Math.random() * 5, // 3px to 8px RGB separation
-          tearTop: Math.floor(Math.random() * 75) + 10,
-          tearHeight: Math.floor(Math.random() * 60) + 25,
-          flickerOpacity: 0.85 + Math.random() * 0.15,
-        });
+            setJitter({
+              x: (Math.random() - 0.5) * 22,
+              y: (Math.random() - 0.5) * 12,
+              skew: (Math.random() - 0.5) * 6,
+              rgbSplit: 8 + Math.random() * 8,
+              barTop: Math.floor(Math.random() * 70) + 15,
+              barHeight: Math.floor(Math.random() * 80) + 30,
+            });
 
-        // Set dynamic telemetry text
-        const msgIdx = (currentBurst - 1) % TELEMETRY_BURST_MSGS.length;
-        setTelemetryText(TELEMETRY_BURST_MSGS[msgIdx]);
-
-        // Trigger sharp electronic audio burst and activate visual tearing
-        setIsGlitchBurstActive(true);
-        tacticalAudio.playGlitchHighBurst(soundDuration);
-
-        // End of the ~0.5s sound burst -> transition into silence
-        const tBurstEnd = setTimeout(() => {
-          if (hasCompletedRef.current) return;
-          setIsGlitchBurstActive(false);
-
-          // Reset severe tearing during silence, keep faint scanline tension
-          setJitter((prev) => ({
-            ...prev,
-            skew: 0,
-            offsetX: 0,
-            offsetY: 0,
-            rgbSplit: 0,
-            flickerOpacity: 1,
-          }));
-
-          // Check if we reached max bursts
-          if (currentBurst >= MAX_BURSTS) {
-            // Transition to Final Interruption & CRT collapse
-            const tFinal = setTimeout(() => {
-              if (hasCompletedRef.current) return;
-              setPhase('final_interruption');
-              setTelemetryText('TERMINAL INPUT SEVERED // PERMANENT EMBARGO ACTIVE');
-              tacticalAudio.playGlitchCutoff();
-
-              const tResolve = setTimeout(() => {
-                if (!hasCompletedRef.current) {
-                  hasCompletedRef.current = true;
-                  setPhase('resolved');
-                  setTimeout(() => {
-                    setPhase('idle');
-                    onComplete();
-                  }, 250);
-                }
-              }, 700);
-              timersRef.current.push(tResolve);
-            }, 350);
-            timersRef.current.push(tFinal);
+            currentErr += 1;
+            const nextDelay = 420; // 420ms per error burst
+            const tNextErr = setTimeout(flashNextError, nextDelay);
+            timersRef.current.push(tNextErr);
           } else {
-            // Unpredictable silence interval between bursts (400ms - 850ms)
-            const silenceDuration = 450 + Math.random() * 400;
-            const tNext = setTimeout(runBurstCycle, silenceDuration);
-            timersRef.current.push(tNext);
+            // Step 4: Cracked Glass Fracture Spreads
+            if (hasFinishedRef.current) return;
+            setStep('cracked_glass');
+            setCrackSpread(1);
+            tacticalAudio.playLayeredDigitalCorruption(0.7, 1.0);
+
+            // Step 5: CRT Phosphor Collapse & Power Cutoff
+            const t4 = setTimeout(() => {
+              if (hasFinishedRef.current) return;
+              setStep('phosphor_collapse');
+              tacticalAudio.playFinalInterruptedTransmission();
+
+              // Step 6: Final System Failure Display
+              const t5 = setTimeout(() => {
+                if (hasFinishedRef.current) return;
+                setStep('final_system_failure');
+
+                // Wait 2.8s for player to absorb the severed transmission, then complete into aftermath
+                const t6 = setTimeout(() => {
+                  if (hasFinishedRef.current) return;
+                  hasFinishedRef.current = true;
+                  clearAllTimers();
+                  setStep('resolved');
+                  setTimeout(() => {
+                    setStep('idle');
+                    onComplete();
+                  }, 200);
+                }, 2800);
+                timersRef.current.push(t6);
+              }, 480);
+              timersRef.current.push(t5);
+            }, 750);
+            timersRef.current.push(t4);
           }
-        }, soundDuration * 1000);
+        };
 
-        timersRef.current.push(tBurstEnd);
-      };
-
-      runBurstCycle();
-    }, 650);
-
-    timersRef.current.push(tStartGlitch);
+        flashNextError();
+      }, 700);
+      timersRef.current.push(t2);
+    }, 800);
+    timersRef.current.push(t1);
 
     return () => {
-      clearAllTimersAndSounds();
+      clearAllTimers();
     };
-  }, [isActive, reducedScareMode, prefersReducedMotion, handleSkipOrRecover, onComplete, clearAllTimersAndSounds]);
+  }, [isActive, reducedScareMode, clearAllTimers, handleBypass, onComplete]);
 
-  // Keyboard Escape to quickly recover
+  // ESC key bypass
   useEffect(() => {
     if (!isActive) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        handleSkipOrRecover();
+        handleBypass();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isActive, handleSkipOrRecover]);
+  }, [isActive, handleBypass]);
 
-  if (!isActive && phase === 'idle') return null;
+  if (!isActive && step === 'idle') return null;
 
   return (
     <div
       role="alert"
       aria-live="assertive"
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/94 backdrop-blur-md transition-opacity duration-200 ${
-        phase === 'resolved' ? 'opacity-0' : 'opacity-100'
+      className={`fixed inset-0 z-[999999] flex items-center justify-center bg-black overflow-hidden select-none transition-opacity duration-200 ${
+        step === 'resolved' ? 'opacity-0' : 'opacity-100'
       }`}
     >
-      {/* Dynamic Scanlines Overlay */}
-      <div className="absolute inset-0 glitch-scanlines pointer-events-none opacity-50" />
+      {/* 1. Global CRT Scanline Shimmer */}
+      <div className="absolute inset-0 glitch-scanlines pointer-events-none opacity-60" />
 
-      {/* Synchronized Screen Tearing Bar (Active only during the electronic burst) */}
-      {isGlitchBurstActive && (
+      {/* 2. Horizontal Screen Tearing & Slicing Bars */}
+      {(step === 'flicker_tearing' || step === 'flashing_errors' || step === 'cracked_glass') && (
         <>
           <div
-            className="absolute inset-x-0 bg-red-500/20 pointer-events-none mix-blend-screen transition-all"
+            className="absolute inset-x-0 bg-red-600/35 pointer-events-none mix-blend-screen transition-all"
             style={{
-              top: `${jitter.tearTop}%`,
-              height: `${jitter.tearHeight}px`,
-              filter: 'blur(1px)',
+              top: `${jitter.barTop}%`,
+              height: `${jitter.barHeight}px`,
+              filter: 'blur(2px)',
             }}
           />
           <div
-            className="absolute inset-0 pointer-events-none bg-red-950/25 mix-blend-color-dodge"
-            style={{
-              opacity: jitter.flickerOpacity,
-            }}
+            className="absolute inset-0 pointer-events-none bg-red-950/40 mix-blend-color-dodge animate-pulse"
           />
         </>
       )}
 
-      {/* Main Terminal Malfunction Frame with unpredictable displacement during bursts */}
-      <div
-        style={{
-          transform: isGlitchBurstActive
-            ? `translate(${jitter.offsetX}px, ${jitter.offsetY}px) skewX(${jitter.skew}deg)`
-            : 'none',
-          boxShadow: isGlitchBurstActive
-            ? `0 0 110px rgba(220, 20, 20, 0.7), ${jitter.rgbSplit}px 0 0 rgba(0, 255, 255, 0.2), -${jitter.rgbSplit}px 0 0 rgba(255, 0, 0, 0.3)`
-            : '0 0 60px rgba(160, 20, 20, 0.35)',
-          transition: isGlitchBurstActive ? 'none' : 'transform 120ms ease-out',
-        }}
-        className={`relative max-w-xl w-full bg-[#0a0a09] border p-6 sm:p-8 text-center select-none ${
-          phase === 'final_interruption'
-            ? 'glitch-phosphor-collapse border-red-700 bg-black'
-            : isGlitchBurstActive
-            ? 'border-red-600 bg-[#0e0707]'
-            : 'border-red-900/60'
-        }`}
-      >
-        {/* Terminal Header Telemetry */}
-        <div className="flex items-center justify-between border-b border-red-900/40 pb-3 mb-5 font-mono text-[11px] tracking-widest text-red-400 uppercase">
-          <div className="flex items-center gap-2">
-            <span
-              className={`size-2.5 rounded-full ${
-                isGlitchBurstActive
-                  ? 'bg-red-500 animate-ping'
-                  : phase === 'carrier_warning'
-                  ? 'bg-amber-400 animate-pulse'
-                  : 'bg-red-700'
-              }`}
-            />
-            <span>
-              {isGlitchBurstActive
-                ? `INTERRUPT PULSE 0${burstCount} // CARRIER BURST ACTIVE`
-                : phase === 'final_interruption'
-                ? 'TERMINAL POWER CUTOFF'
-                : 'DISPATCH MONITOR // CARRIER LOCKED'}
-            </span>
-          </div>
-          <span>SEC-LVL 4</span>
-        </div>
-
-        {/* Status Icon */}
-        <div className="flex justify-center mb-4">
-          {isGlitchBurstActive ? (
-            <ShieldAlert className="w-12 h-12 text-red-500 animate-pulse" />
-          ) : phase === 'final_interruption' ? (
-            <AlertTriangle className="w-12 h-12 text-red-600" />
-          ) : (
-            <Terminal className="w-12 h-12 text-amber-400/90" />
-          )}
-        </div>
-
-        {/* Narrative Title */}
-        <h3
-          style={{
-            textShadow: isGlitchBurstActive
-              ? `${jitter.rgbSplit}px 0 0 rgba(255,0,0,0.7), -${jitter.rgbSplit}px 0 0 rgba(0,255,255,0.7)`
-              : 'none',
-          }}
-          className="font-serif text-xl sm:text-2xl text-[#f4efe6] mb-2 tracking-wide"
+      {/* 3. Cracked Glass Vector Overlay */}
+      {(step === 'cracked_glass' || step === 'phosphor_collapse' || crackSpread > 0) && (
+        <svg
+          className="absolute inset-0 w-full h-full pointer-events-none z-30 transition-opacity duration-300 opacity-90 mix-blend-screen"
+          viewBox="0 0 1000 1000"
+          preserveAspectRatio="none"
         >
-          {phase === 'final_interruption'
-            ? 'TERMINAL POWER CUTOFF'
-            : isGlitchBurstActive
-            ? 'ARCHIVAL TRANSMISSION EMBARGO'
-            : 'ANOMALOUS CARRIER DETECTED'}
-        </h3>
+          {/* Main fracture spider center */}
+          <circle cx="500" cy="460" r="14" fill="#ffffff" opacity="0.8" />
+          <path
+            d="M500,460 L120,80 M500,460 L850,110 M500,460 L920,820 M500,460 L60,890 M500,460 L480,20 M500,460 L520,980 M500,460 L240,420 M500,460 L780,510"
+            stroke="#ffffff"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            opacity="0.85"
+          />
+          {/* Secondary branching crack shards */}
+          <path
+            d="M310,270 L280,180 L190,140 M675,285 L740,210 L810,240 M710,640 L800,680 L890,620 M270,675 L210,720 L110,690 M490,240 L430,170 M510,720 L570,810 L630,860"
+            stroke="#e0e0e0"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            opacity="0.7"
+          />
+          <path
+            d="M420,380 L380,450 L340,390 M580,390 L620,440 L660,380 M440,540 L480,600 L540,560"
+            stroke="#b0b0b0"
+            strokeWidth="1"
+            strokeLinecap="round"
+            opacity="0.6"
+          />
+        </svg>
+      )}
 
-        {/* Dynamic Telemetry Narrative */}
-        <p
+      {/* 4. Flashing Red Error Messages Step */}
+      {step === 'flashing_errors' && (
+        <div
           style={{
-            letterSpacing: isGlitchBurstActive ? '0.12em' : '0.05em',
+            transform: `translate(${jitter.x}px, ${jitter.y}px) skewX(${jitter.skew}deg)`,
+            textShadow: `${jitter.rgbSplit}px 0 0 rgba(255,0,0,0.8), -${jitter.rgbSplit}px 0 0 rgba(0,255,255,0.8)`,
           }}
-          className={`font-mono text-xs sm:text-sm tracking-wider mb-6 leading-relaxed ${
-            isGlitchBurstActive ? 'text-red-300 font-bold' : 'text-red-400/80'
-          }`}
+          className="relative z-20 px-8 py-6 bg-red-950/80 border-2 border-red-500 shadow-[0_0_80px_rgba(230,0,0,0.8)] text-center max-w-lg w-full mx-4"
         >
-          {telemetryText}
-        </p>
-
-        {/* Diagnostic Strip */}
-        <div className="bg-[#050505] border border-stone-800 p-3 mb-6 text-left font-mono text-[10px] text-stone-400 space-y-1">
-          <div className="flex justify-between">
-            <span>REPOSITORY: CASE 17 // ELLEN VALE ARCHIVE</span>
-            <span className={isGlitchBurstActive ? 'text-red-400 font-bold animate-pulse' : 'text-stone-300'}>
-              {isGlitchBurstActive ? 'SIGNAL BURST SYNCHRONIZED' : 'SILENCE INTERVAL'}
-            </span>
+          <div className="flex items-center justify-center gap-2 mb-3 text-red-400 font-mono text-xs uppercase tracking-widest">
+            <ShieldAlert size={18} className="animate-ping" />
+            <span>CRITICAL HARDWARE MALFUNCTION</span>
           </div>
-          <div className="flex justify-between">
-            <span>DIRECTORATE PROTOCOL: EMBARGO ACTIVE</span>
-            <span>CONTAINMENT: ENFORCED</span>
+          <h2 className="font-mono text-2xl sm:text-3xl font-black text-white tracking-widest uppercase">
+            [{FLASH_ERRORS[errorIndex]}]
+          </h2>
+          <div className="mt-3 font-mono text-[10px] text-red-300/80 tracking-wider">
+            SECTOR 17 // AUDIO CARRIER SEVERED // PARITY REJECTED
           </div>
         </div>
+      )}
 
-        {/* Safe Recovery Action */}
-        <div className="flex items-center justify-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={handleSkipOrRecover}
-            className="flex items-center gap-2 px-4 py-2 bg-stone-900 hover:bg-stone-800 border border-stone-700 hover:border-stone-500 text-stone-300 hover:text-white font-mono text-xs tracking-wider transition-colors cursor-pointer"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>BYPASS INTERRUPT (ESC)</span>
-          </button>
+      {/* 5. CRT Phosphor Collapse Animation */}
+      {step === 'phosphor_collapse' && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-40 bg-black">
+          <div className="w-full h-[2px] bg-white animate-pulse shadow-[0_0_20px_#ffffff]" />
+        </div>
+      )}
 
-          {onDismiss && (
+      {/* 6. Step 6: Final System Failure Terminal Card */}
+      {step === 'final_system_failure' && (
+        <div className="relative z-30 max-w-xl w-full mx-4 p-8 bg-[#090807] border border-red-800 shadow-[0_0_90px_rgba(180,20,20,0.6)] text-center">
+          <div className="flex items-center justify-between border-b border-red-900/50 pb-3 mb-6 font-mono text-xs text-red-400 uppercase tracking-widest">
+            <div className="flex items-center gap-2">
+              <span className="size-2 rounded-full bg-red-500 animate-pulse" />
+              <span>TERMINAL STATUS: SIGNAL LOST</span>
+            </div>
+            <span>OFFICIAL RECORD</span>
+          </div>
+
+          <AlertTriangle className="w-14 h-14 text-red-500 mx-auto mb-4" />
+
+          <h1 className="font-serif text-3xl sm:text-4xl text-[#f3eee5] font-light tracking-wide mb-3">
+            Transmission Terminated
+          </h1>
+
+          <p className="font-mono text-xs sm:text-sm text-red-300 tracking-wider mb-6 leading-relaxed">
+            SYSTEM INTEGRITY COLLAPSED. ALL AUDIO CARRIERS ARE SILENT.
+            <br />
+            THE ARCHIVAL INVESTIGATION IS OFFICIALLY CONCLUDED.
+          </p>
+
+          <div className="p-3 bg-[#0d0a09] border border-stone-800 font-mono text-[11px] text-stone-400 mb-6 text-left space-y-1">
+            <div className="flex justify-between">
+              <span>DISPATCH REPOSITORY:</span>
+              <span className="text-red-400 font-bold">EMBARGO PERMANENT</span>
+            </div>
+            <div className="flex justify-between">
+              <span>INVESTIGATION STANDINGS:</span>
+              <span className="text-[#8bb393]">LOCKED ON RECORD</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <button
-              type="button"
-              onClick={() => {
-                clearAllTimersAndSounds();
-                onDismiss();
-              }}
-              className="flex items-center gap-2 px-3 py-2 text-stone-500 hover:text-stone-300 font-mono text-xs tracking-wider transition-colors cursor-pointer"
+              onClick={handleBypass}
+              className="button button-primary px-6 py-2.5 font-mono text-xs tracking-widest"
             >
-              <XCircle className="w-3.5 h-3.5" />
-              <span>DISMISS</span>
+              PROCEED TO AFTERMATH DOSSIER →
             </button>
-          )}
+          </div>
         </div>
+      )}
+
+      {/* Step 1 & 2 Center Freeze Notice */}
+      {(step === 'initial_freeze' || step === 'flicker_tearing') && (
+        <div className="relative z-20 text-center font-mono text-xs text-stone-400 uppercase tracking-widest animate-pulse">
+          <Radio size={24} className="mx-auto mb-2 text-red-400" />
+          <span>RECEIVER BUFFER EXHAUSTED...</span>
+        </div>
+      )}
+
+      {/* Bottom Emergency Skip / Escape */}
+      <div className="absolute bottom-4 inset-x-0 flex justify-center z-50">
+        <button
+          onClick={handleBypass}
+          className="text-[10px] font-mono text-stone-600 hover:text-stone-300 tracking-widest uppercase transition-colors px-3 py-1 bg-black/60 border border-stone-800"
+        >
+          [ESC] Bypass Malfunction
+        </button>
       </div>
     </div>
   );

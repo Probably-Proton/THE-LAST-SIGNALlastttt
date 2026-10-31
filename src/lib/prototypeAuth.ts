@@ -80,6 +80,9 @@ export interface UserProgress {
   muteAudioDefault: boolean;
   // Dispatches & Messages
   readMessageIds: string[];
+  // Post-Ending Aftermath State
+  endingCorruptedAftermath?: boolean; // Set to true after Stage 7 ending glitch sequence
+  aftermathDismissed?: boolean; // Reversible diagnostic toggle to inspect normal interface
 }
 
 const USERS_STORAGE_KEY = 'tls_prototype_users_v1';
@@ -259,6 +262,8 @@ export function createInitialProgress(callSign: string): UserProgress {
     reducedScareMode: false,
     muteAudioDefault: true,
     readMessageIds: [],
+    endingCorruptedAftermath: false,
+    aftermathDismissed: false,
   };
 }
 
@@ -287,6 +292,8 @@ export function getUserProgress(callSign: string): UserProgress {
         stageScores: parsed.stageScores || {},
         organizerAuditLog: parsed.organizerAuditLog || [],
         readMessageIds: Array.isArray(parsed.readMessageIds) ? parsed.readMessageIds : [],
+        endingCorruptedAftermath: parsed.endingCorruptedAftermath ?? (parsed.stagesCompleted >= 7 && parsed.stage7Step === 'completed'),
+        aftermathDismissed: parsed.aftermathDismissed ?? false,
       };
     }
   } catch (err) {
@@ -424,61 +431,14 @@ export function hasAnyStaffAccounts(): boolean {
 }
 
 /**
- * Register or update the initial organizer account in prototype storage.
- * Note: Passwords are NEVER saved in plaintext; only the Web Crypto SHA-256 hash is persisted.
+ * Staff account registration is permanently disabled.
+ * Access to the Staff Console is governed exclusively by the Master Staff Password.
  */
-export async function registerStaffOrganizer(params: {
-  fullName: string;
-  callSign: string;
-  passwordPlain: string;
-  role?: 'owner' | 'organiser';
-}): Promise<{ success: boolean; error?: string; user?: PrototypeUser }> {
-  const { fullName, callSign, passwordPlain, role = 'owner' } = params;
-
-  const cleanCallSign = callSign.trim();
-  if (cleanCallSign.length < 3 || cleanCallSign.length > 24) {
-    return { success: false, error: 'Call-sign must be between 3 and 24 characters.' };
-  }
-
-  if (passwordPlain.length < 8) {
-    return { success: false, error: 'Staff password must be at least 8 characters long.' };
-  }
-
-  const [passwordHash, admissionHash] = await Promise.all([
-    hashString(passwordPlain),
-    hashString(`STAFF_${cleanCallSign}`),
-  ]);
-
-  const users = getAllUsers();
-  const existingIndex = users.findIndex(
-    (u) => u.callSign.toLowerCase() === cleanCallSign.toLowerCase()
-  );
-
-  const staffUser: PrototypeUser = {
-    id: existingIndex >= 0 ? users[existingIndex].id : `staff_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    fullName: fullName.trim() || 'Head Event Organizer',
-    studentClass: 'Staff / Operations',
-    admissionNumberMasked: 'STAFF-••••0001',
-    admissionHash,
-    callSign: cleanCallSign,
-    passwordHash,
-    registeredAt: existingIndex >= 0 ? users[existingIndex].registeredAt : new Date().toISOString(),
-    role,
-    isStaff: true,
+export async function registerStaffOrganizer(): Promise<{ success: boolean; error: string }> {
+  return {
+    success: false,
+    error: 'Staff account registration is disabled. Access is authorized exclusively via the Master Operations Password.',
   };
-
-  if (existingIndex >= 0) {
-    users[existingIndex] = staffUser;
-  } else {
-    users.push(staffUser);
-  }
-  saveUsers(users);
-
-  // Ensure isolated progress exists
-  getUserProgress(staffUser.callSign);
-  setActiveSession(staffUser);
-
-  return { success: true, user: staffUser };
 }
 
 /**

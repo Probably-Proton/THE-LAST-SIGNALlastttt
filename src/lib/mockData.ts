@@ -19,7 +19,8 @@ export type EvidenceKind =
   | 'Document'
   | 'Audio'
   | 'Interview'
-  | 'Newspaper';
+  | 'Newspaper'
+  | 'Forensic negative';
 
 export type EvidenceStatus = 'available' | 'locked' | 'restricted' | 'sealed' | 'reviewed';
 
@@ -184,62 +185,17 @@ export const evidence: EvidenceItem[] = [
   },
   {
     id: 'EV-0201',
-    title: 'Photographic Negative — Evidence #74-17',
+    title: 'Photographic Negative Dossier — Archival Evidence Plates (1–4)',
     category: 'Photograph',
     kind: 'Forensic negative',
-    source: "Solano County Sheriff's Dept",
-    date: '27 Dec 1968',
+    source: 'California Department of Justice / Multi-County Forensic Labs',
+    date: '1968–1969',
     classification: 'Confidential',
     status: 'locked',
     stage: 2,
-    summary: 'Archival photographic negative extracted from sub-basement archive bay. Includes location documentation and geographic telemetry stamps.',
-    description: 'Forensic negative plate documenting incident area at Lake Herman Road, Benicia. Filed with forensic imaging metadata stamps and chain-of-custody notes.',
+    summary: 'Consolidated archival photographic negative dossier containing all four canonical crime scene sector negatives (Lake Herman Rd, Blue Rock Springs, Lake Berryessa, Presidio Heights) with stamped telemetry data.',
+    description: 'Official case dossier housing four archival photographic negative plates recovered from county sheriff repositories. Each plate preserves geographic coordinates and incident telemetry encoded in the marginal camera data strips.',
     image: '/assets/aistudio/WhatsApp_Image_2026-10-30_at_14.44.03_3e3a9c61.jpeg',
-    hasDocument: true,
-  },
-  {
-    id: 'EV-0202',
-    title: 'Photographic Negative — Evidence #69-0715',
-    category: 'Photograph',
-    kind: 'Forensic negative',
-    source: "Solano County Sheriff's Dept",
-    date: '06 Jul 1969',
-    classification: 'Confidential',
-    status: 'locked',
-    stage: 2,
-    summary: 'Archival photographic negative documenting crime scene perimeter. Includes location documentation and geographic telemetry stamps.',
-    description: 'Forensic negative plate documenting entrance area at Blue Rock Springs Park, Vallejo. Filed with forensic imaging metadata stamps and chain-of-custody notes.',
-    image: '/assets/aistudio/WhatsApp_Image_2026-10-30_at_14.44.33_edb54738.jpeg',
-    hasDocument: true,
-  },
-  {
-    id: 'EV-0203',
-    title: 'Photographic Negative — Evidence #1026-69',
-    category: 'Photograph',
-    kind: 'Forensic negative',
-    source: "Napa County Sheriff's Dept",
-    date: '01 Oct 1969',
-    classification: 'Confidential',
-    status: 'locked',
-    stage: 2,
-    summary: 'Archival photographic negative documenting lakeside sector. Includes location documentation and geographic telemetry stamps.',
-    description: 'Forensic negative plate documenting shoreline and surrounding terrain at Lake Berryessa. Filed with forensic imaging metadata stamps and chain-of-custody notes.',
-    image: '/assets/aistudio/WhatsApp_Image_2026-10-30_at_14.44.15_2080eb42.jpeg',
-    hasDocument: true,
-  },
-  {
-    id: 'EV-0204',
-    title: 'Photographic Negative — Evidence #1127-69',
-    category: 'Photograph',
-    kind: 'Forensic negative',
-    source: "SF Sheriff's Department",
-    date: '11 Nov 1969',
-    classification: 'Confidential',
-    status: 'locked',
-    stage: 2,
-    summary: 'Archival photographic negative documenting urban street sector. Includes location documentation and geographic telemetry stamps.',
-    description: 'Forensic negative plate documenting intersection vicinity at Presidio Heights, San Francisco. Filed with forensic imaging metadata stamps and chain-of-custody notes.',
-    image: '/assets/aistudio/WhatsApp_Image_2026-10-30_at_14.44.24_6a138436.jpeg',
     hasDocument: true,
   },
   {

@@ -9,16 +9,19 @@ import {
   Archive,
   ArrowLeft,
   ArrowRight,
+  Award,
   BarChart3,
   Bell,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock3,
   Compass,
   Copy,
   FileText,
+  Filter,
   FolderOpen,
   Headphones,
   HelpCircle,
@@ -31,6 +34,7 @@ import {
   Map as MapIcon,
   Maximize2,
   Minimize2,
+  Medal,
   Menu,
   MessageSquare,
   Minus,
@@ -143,6 +147,7 @@ import {
   createTeamAction,
   joinTeamAction,
   leaveTeamAction,
+  rotateInviteCodeAction,
   type TeamData,
 } from '@/src/lib/teamService';
 import { getDeliveredMessagesForPlayer } from '@/src/lib/messagesStore';
@@ -342,8 +347,12 @@ export default function App() {
     navigate('/');
   };
 
-  // Route protection
-  const isPublicRoute = route.view === 'landing' || route.view === 'register' || route.view === 'login';
+  // Route protection: Landing, Registration, Login, and Password-Guarded Staff Console
+  const isPublicRoute =
+    route.view === 'landing' ||
+    route.view === 'register' ||
+    route.view === 'login' ||
+    route.view === 'admin';
   const requiresAuth = !isPublicRoute;
 
   // Unauthenticated visitors trying to access protected game routes
@@ -389,6 +398,36 @@ export default function App() {
 
         <footer className="border-t border-border py-4 text-center font-mono text-[11px] text-muted-foreground">
           THE LAST SIGNAL — CASE {CASE_ID} — ONLINE FICTIONAL SCHOOL INVESTIGATION
+        </footer>
+      </div>
+    );
+  }
+
+  // Standalone password-only Staff Console access (when no investigator account is logged in)
+  if (route.view === 'admin' && !currentUser) {
+    return (
+      <div className="min-h-screen bg-[#0c0c0b] text-[#ebe6dc] flex flex-col justify-between">
+        <header className="border-b border-border px-6 py-4 flex justify-between items-center bg-[#0c0c0b]/90">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
+            <span className="block size-2 rounded-full bg-crimson" />
+            <span className="font-mono text-xs uppercase tracking-[0.28em]">THE LAST SIGNAL // OPERATIONS</span>
+          </div>
+          <button className="button button-secondary text-xs" onClick={() => navigate('/')}>
+            ← Return to Case Briefing
+          </button>
+        </header>
+
+        <div className="py-8 max-w-7xl mx-auto w-full px-4 sm:px-6">
+          <StaffRoomView
+            user={undefined}
+            progress={getUserProgress('organizer')}
+            onUpdateProgress={() => {}}
+            onLogout={() => navigate('/')}
+          />
+        </div>
+
+        <footer className="border-t border-border py-4 text-center font-mono text-[11px] text-muted-foreground">
+          THE LAST SIGNAL — CASE {CASE_ID} — CLASSIFIED OPERATIONS DESK
         </footer>
       </div>
     );
@@ -447,11 +486,11 @@ export default function App() {
   // Before official game launch (12:00 AM IST on 1 November 2026),
   // authenticated students see the atmospheric GameLaunchScreen with live countdown.
   // Game puzzles, evidence archives, and story intermissions remain sealed.
-  // Verified individual stage overrides (Testing Clearance) or verified staff bypass this countdown gate.
+  // Verified individual stage overrides (Testing Clearance) or Staff console bypass this countdown gate.
   const hasActiveOverride = Boolean(currentUser?.hasStageOverride || progress?.hasStageOverride);
   if (currentUser && !gameLaunched && !hasActiveOverride) {
-    if (route.view === 'admin' && isUserStaff(currentUser)) {
-      // Allow authorized staff into staff room console
+    if (route.view === 'admin') {
+      // Allow authorized staff into password-guarded staff room console
     } else {
       return (
         <div className="min-h-screen bg-[#0c0c0b] text-[#ebe6dc] flex flex-col">
@@ -468,21 +507,7 @@ export default function App() {
     }
   }
 
-  // Standalone or explicit Launch Terminal screen
-  if (route.view === 'terminal') {
-    return (
-      <div className="min-h-screen bg-[#0c0c0b] text-[#ebe6dc] flex flex-col">
-        <GameLaunchScreen
-          user={currentUser!}
-          onLogout={handleLogout}
-          onLaunch={() => {
-            setRealNow(new Date());
-            navigate('/dashboard');
-          }}
-        />
-      </div>
-    );
-  }
+
 
   // Authenticated Shell
   return (
@@ -660,6 +685,7 @@ function Sidebar({
     layout: LayoutDashboard,
     folder: FolderOpen,
     file: FileText,
+    terminal: Terminal,
     map: MapIcon,
     shield: ShieldAlert,
     message: MessageSquare,
@@ -1202,7 +1228,16 @@ function LandingView({
       <footer className="border-t border-[#2a2927] py-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 font-mono text-xs uppercase tracking-[0.22em] text-[#8d8880] md:flex-row md:items-center md:justify-between md:px-10">
           <p>THE LAST SIGNAL — CASE {CASE_ID} — A FICTIONAL SCHOOL MYSTERY GAME</p>
-          <p>ONLINE-ONLY EVENT · NEVER VISIT REAL LOCATIONS</p>
+          <div className="flex items-center gap-4">
+            <p>ONLINE-ONLY EVENT · NEVER VISIT REAL LOCATIONS</p>
+            <span className="text-[#3a3937] hidden md:inline">|</span>
+            <button
+              onClick={() => navigate('/admin')}
+              className="text-[#8d8880] hover:text-[#ebe6dc] transition-colors underline cursor-pointer text-[10px]"
+            >
+              Staff Console
+            </button>
+          </div>
         </div>
       </footer>
     </div>
@@ -2074,18 +2109,24 @@ function EvidenceViewerView({
 
   const pageTitles = useMemo(() => {
     if (!item) return ['Document'];
-    if (item.id === 'EV-0101') return ['SFPD Scene Report DOC-SFPD-74-091', 'Alleyway Photograph'];
+    if (item.id === 'EV-0101') return ['SFPD Scene Report DOC-SFPD-74-091', 'Alleyway Photographic Plate'];
     if (item.id === 'EV-0102') return ['BCI Technical Lab Teardown', 'Hardware Photos'];
-    if (item.id === 'EV-0103') return ['Exorcist Letter & Memo', 'Forensic Annotation'];
-    if (item.id === 'ARC-002') return ['Credential Log', 'Forensic Chain of Custody'];
-    if (item.id === 'EV-0201') return ['Negative Telemetry DOC-NEG-74-17', 'Archival Room Negative'];
-    if (item.id === 'CAS-017') return ['Witness Transcript DOC-WIT-74-88', 'Presidio Precinct Notes'];
+    if (item.id === 'EV-0103') return ["The Exorcist's Letter & Affixed Note"];
+    if (item.id === 'ARC-002') return ['Partial Credential Worksheet'];
+    if (item.id === 'EV-0201') return [
+      'Plate 1: Lake Herman Rd (#74-17)',
+      'Plate 2: Blue Rock Springs (#69-0715)',
+      'Plate 3: Lake Berryessa (#1026-69)',
+      'Plate 4: Presidio Heights (#1127-69)',
+    ];
+    if (item.id === 'CAS-017') return ['Verbatim Stenographic Witness Transcript'];
     if (item.id === 'EV-0301') return ['Signal Corps Survey DOC-SURV-74-33', 'Microwave Mast Photo'];
-    if (item.id === 'EV-0502') return ['DOJ Dossier: Arthur Leigh Allen', 'Investigation Corroboration'];
-    if (item.id === 'EV-0503') return ['Intelligence Dossier: Richard Gaikowski', 'Good Times Correlation'];
-    if (item.id === 'EV-0601') return ['Incident Report 06-B', 'The Torn Note', 'ARCHIVE_ACCESS.txt'];
-    if (item.id === 'EV-0602') return ['Archival Revision Log', 'Unsent Teletype'];
-    if (item.id === 'EV-0701') return ["Ellen Vale's Journal (Oct 1971)", 'FINAL_REVIEW.mp4 Reel'];
+    if (item.id === 'EV-0501') return ['Chronicle Front Page'];
+    if (item.id === 'EV-0502') return ['DOJ Dossier: Arthur Leigh Allen'];
+    if (item.id === 'EV-0503') return ['Intelligence Dossier: Richard Gaikowski'];
+    if (item.id === 'EV-0601') return ['Incident Report 06-B', 'The Torn Note (E.V.)', 'ARCHIVE_ACCESS.txt'];
+    if (item.id === 'EV-0602') return ['Archival Revision Log Comparison', 'Unsent Teletype Fragment'];
+    if (item.id === 'EV-0701') return ["Ellen Vale's Research Journal", 'FINAL_REVIEW.mp4 Reel'];
     if (item.id === 'EV-0702') return ['Chronicle Late Edition', 'Station Incident Report'];
     if (item.category === 'Audio') return ['Audio Cassette Deck', 'Signal Waveform Analysis'];
     if (item.category === 'Newspaper') return ['Chronicle Front Page', 'Archival Metadata'];
@@ -2253,14 +2294,10 @@ function EvidenceViewerView({
           <ArrowLeft size={14} /> Return to Evidence Room
         </button>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/terminal')}
-            className="button button-secondary text-xs font-mono py-1.5 px-3 flex items-center gap-1.5"
-          >
-            <Terminal size={13} className="text-emerald-400" />
-            <span>Clearance Terminal</span>
-          </button>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs text-muted-foreground uppercase">
+            EVIDENCE DOSSIER // {item.id}
+          </span>
         </div>
       </div>
 
@@ -2413,7 +2450,11 @@ function EvidenceViewerView({
               ) : item.id === 'ARC-002' ? (
                 <CredentialWorksheetSheet item={item} />
               ) : item.id.startsWith('EV-02') ? (
-                <ForensicNegativeDoc item={item} />
+                <ForensicNegativeDoc
+                  item={item}
+                  activePlateIndex={page}
+                  onPlateChange={(idx) => setPage(idx)}
+                />
               ) : item.id === 'CAS-017' ? (
                 <WitnessTranscriptDoc item={item} />
               ) : item.id === 'EV-0301' ? (
@@ -2465,25 +2506,6 @@ function EvidenceViewerView({
 
         {/* Right Metadata & Field Notes */}
         <aside className="viewer-aside space-y-6">
-          <div className="panel border-t-2 border-t-emerald-800 bg-[#0d120e] text-[#b8dfc0]">
-            <div className="panel-heading text-[#8fcf9a]">
-              <span>INVESTIGATOR CLEARANCE</span>
-              <Terminal size={14} />
-            </div>
-            <p className="font-mono text-xs text-[#8fcf9a]/80 leading-relaxed my-2">
-              All credentials, decoded telemetry coordinates, and access keys are validated through the Central Clearance Terminal.
-            </p>
-            <div className="pt-2">
-              <button
-                onClick={() => navigate('/terminal')}
-                className="button w-full flex items-center justify-center gap-2 bg-[#1b3b22] hover:bg-[#23502d] text-[#e3f7e6] border border-[#3e784c] text-xs font-mono py-2.5 cursor-pointer"
-              >
-                <Terminal size={14} className="text-emerald-400" />
-                <span>OPEN CLEARANCE TERMINAL</span>
-              </button>
-            </div>
-          </div>
-
           <div className="panel border-t-2 border-t-crimson">
             <div className="panel-heading">
               <span>CHAIN OF CUSTODY</span>
@@ -4626,6 +4648,9 @@ function LeaderboardView({
   const isExcluded = Boolean(
     user.excludeFromLeaderboard ||
     progress.excludeFromLeaderboard ||
+    user.hasStageOverride ||
+    progress.hasStageOverride ||
+    (user.email && user.email.toLowerCase().trim() === 'rudrapratapf.0562@gmail.com') ||
     user.isStaff
   );
 
@@ -4641,15 +4666,25 @@ function LeaderboardView({
           const { data, error } = await supabase.rpc('get_leaderboard', { p_kind: kind });
           if (!error && Array.isArray(data)) {
             if (!cancelled) {
-              setEntries(
-                data.map((row: any) => ({
-                  pos: Number(row.pos),
+              const sanitizedRows = data
+                .filter((row: any) => {
+                  const rName = String(row.name || '').toLowerCase().trim();
+                  if (
+                    rName === 'rudrapratapf.0562@gmail.com' ||
+                    (isExcluded && rName === user.callSign.toLowerCase().trim())
+                  ) {
+                    return false;
+                  }
+                  return true;
+                })
+                .map((row: any, idx: number) => ({
+                  pos: idx + 1,
                   name: row.name,
                   score: Number(row.score),
                   stagesCompleted: Number(row.stages_completed ?? 0),
                   lastProgress: row.last_progress,
-                }))
-              );
+                }));
+              setEntries(sanitizedRows);
               setLoading(false);
               return;
             }
@@ -4661,11 +4696,18 @@ function LeaderboardView({
 
       // 2. Prototype / local fallback
       const allUsers = getAllUsers();
-      // Strictly exclude staff and anyone flagged excludeFromLeaderboard
+      // Strictly exclude staff, testing accounts with stage overrides, and developer account
       const eligibleUsers = allUsers.filter((u) => {
-        if (u.isStaff || u.excludeFromLeaderboard) return false;
+        if (
+          u.isStaff ||
+          u.excludeFromLeaderboard ||
+          u.hasStageOverride ||
+          (u.email && u.email.toLowerCase().trim() === 'rudrapratapf.0562@gmail.com')
+        ) {
+          return false;
+        }
         const uProg = getUserProgress(u.callSign);
-        if (uProg.excludeFromLeaderboard) return false;
+        if (uProg.excludeFromLeaderboard || uProg.hasStageOverride) return false;
         return true;
       });
 
@@ -4872,7 +4914,7 @@ function LeaderboardView({
 
 
 /* =========================================================================
-   12. TEAM VIEW (Clean Empty State for Solo Users)
+   12. TEAM VIEW (Full Authoritative Supabase & Server Team Management)
    ========================================================================= */
 
 function TeamView({
@@ -4884,118 +4926,402 @@ function TeamView({
   progress: UserProgress;
   onUpdateProgress: (updater: (prev: UserProgress) => UserProgress) => void;
 }) {
+  const [teamData, setTeamData] = useState<TeamData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [teamInput, setTeamInput] = useState('');
-  const [createdMsg, setCreatedMsg] = useState('');
+  const [joinInput, setJoinInput] = useState('');
+  const [statusMsg, setStatusMsg] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const handleCreateTeam = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (teamInput.trim().length < 3) return;
-    const code = `TLS-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    onUpdateProgress((prev) => ({
-      ...prev,
-      teamName: teamInput.trim(),
-      teamCode: code,
-    }));
-    setCreatedMsg(`Team "${teamInput.trim()}" created! Share code ${code} with your teammates.`);
+  // Load team data on mount and whenever user changes
+  const loadTeamData = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetchMyTeam(user);
+      if (res.inTeam && res.team) {
+        setTeamData(res.team);
+        if (progress.teamName !== res.team.name || progress.teamCode !== res.team.inviteCode) {
+          onUpdateProgress((prev) => ({
+            ...prev,
+            teamName: res.team!.name,
+            teamCode: res.team!.inviteCode,
+          }));
+        }
+      } else {
+        setTeamData(null);
+        if (progress.teamName) {
+          onUpdateProgress((prev) => ({
+            ...prev,
+            teamName: null,
+            teamCode: null,
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn('[TeamView] Failed to fetch team dossier:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleLeaveTeam = () => {
-    if (confirm('Leave your current team and revert to Solo Operative?')) {
-      onUpdateProgress((prev) => ({
-        ...prev,
-        teamName: null,
-        teamCode: null,
-      }));
+  useEffect(() => {
+    loadTeamData();
+  }, [user.callSign]);
+
+  // Handle creating a new team
+  const handleCreateTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = teamInput.trim();
+    if (cleanName.length < 3 || cleanName.length > 40) {
+      setStatusMsg({ text: 'Team designation must be between 3 and 40 characters.', type: 'error' });
+      return;
     }
+
+    setIsSubmitting(true);
+    setStatusMsg(null);
+    try {
+      const res = await createTeamAction(cleanName, user, progress, onUpdateProgress);
+      if (res.success && res.team) {
+        setTeamData(res.team);
+        setTeamInput('');
+        setStatusMsg({ text: res.message, type: 'success' });
+      } else {
+        setStatusMsg({ text: res.message || 'Team creation rejected by registry.', type: 'error' });
+      }
+    } catch (err) {
+      setStatusMsg({
+        text: err instanceof Error ? err.message : 'Failed to establish unit in registry.',
+        type: 'error',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle joining an existing team by invite code
+  const handleJoinTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = joinInput.trim().toUpperCase();
+    if (!cleanCode) {
+      setStatusMsg({ text: 'Please enter a valid team invite code.', type: 'error' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMsg(null);
+    try {
+      const res = await joinTeamAction(cleanCode, user, progress, onUpdateProgress);
+      if (res.success) {
+        setJoinInput('');
+        setStatusMsg({ text: res.message, type: 'success' });
+        await loadTeamData();
+      } else {
+        setStatusMsg({ text: res.message || 'Invalid or rejected invite code.', type: 'error' });
+      }
+    } catch (err) {
+      setStatusMsg({
+        text: err instanceof Error ? err.message : 'Database verification failed.',
+        type: 'error',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle departing current team
+  const handleLeaveTeam = async () => {
+    const isLead = teamData?.isCreator;
+    const confirmPrompt = isLead
+      ? 'Are you sure you want to depart this tactical unit? If all members depart, the unit will be retired.'
+      : 'Depart your current tactical unit and revert to Solo Operative?';
+
+    if (!confirm(confirmPrompt)) return;
+
+    setIsSubmitting(true);
+    setStatusMsg(null);
+    try {
+      const res = await leaveTeamAction(user, onUpdateProgress);
+      if (res.success) {
+        setTeamData(null);
+        setStatusMsg({ text: res.message, type: 'info' });
+        await loadTeamData();
+      } else {
+        setStatusMsg({ text: res.message || 'Could not depart unit.', type: 'error' });
+      }
+    } catch (err) {
+      setStatusMsg({
+        text: err instanceof Error ? err.message : 'Departure error.',
+        type: 'error',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle rotating invite code (Lead Operative only)
+  const handleRotateCode = async () => {
+    if (!confirm('Rotate team invite code? The previous code will become invalid immediately.')) return;
+    setIsSubmitting(true);
+    try {
+      const res = await rotateInviteCodeAction(user);
+      if (res.success && res.inviteCode) {
+        if (teamData) {
+          setTeamData({ ...teamData, inviteCode: res.inviteCode });
+        }
+        onUpdateProgress((prev) => ({ ...prev, teamCode: res.inviteCode! }));
+        setStatusMsg({ text: `Invite code updated to ${res.inviteCode}. Share this with new recruits.`, type: 'success' });
+      } else {
+        setStatusMsg({ text: res.message || 'Failed to cycle invite code.', type: 'error' });
+      }
+    } catch (err) {
+      setStatusMsg({ text: 'Error rotating invite code.', type: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 1-Click Copy Invite Code
+  const handleCopyCode = () => {
+    const code = teamData?.inviteCode || progress.teamCode;
+    if (!code) return;
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <>
       <PageHeader
-        eyebrow="Team Registry / Max 5 Investigators"
-        title="Your Team Dossier"
-        description="Students may investigate solo or form a team of up to five operatives. Team members share stage clearance and location submissions."
+        eyebrow="Departmental Team Registry / Maximum 5 Operatives"
+        title="Tactical Team Dossier"
+        description="Investigators may operate solo or form an allied unit of up to five operatives. Team members coordinate stage clearances and share location deduction findings."
       />
 
-      {progress.teamName ? (
+      {statusMsg && (
+        <div
+          className={`mb-6 p-3.5 border font-mono text-xs flex items-center justify-between transition-all ${
+            statusMsg.type === 'success'
+              ? 'bg-[#18261b] border-[#36613d] text-[#9ae0a3]'
+              : statusMsg.type === 'error'
+              ? 'bg-[#291717] border-[#662828] text-[#f89b9b]'
+              : 'bg-[#1b2229] border-[#2f4b66] text-[#9fc2e6]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-bold uppercase tracking-wider">
+              [{statusMsg.type.toUpperCase()}]
+            </span>
+            <span>{statusMsg.text}</span>
+          </div>
+          <button
+            onClick={() => setStatusMsg(null)}
+            className="text-xs opacity-60 hover:opacity-100 font-mono px-1"
+          >
+            DISMISS
+          </button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="panel p-12 text-center">
+          <RefreshCw size={24} className="animate-spin text-accent mx-auto mb-3" />
+          <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+            Verifying Unit Registry with Supabase...
+          </p>
+        </div>
+      ) : teamData || progress.teamName ? (
+        /* Team Enlisted State */
         <div className="grid gap-8 lg:grid-cols-3">
-          <div className="panel lg:col-span-2">
-            <div className="flex items-center justify-between border-b border-line-soft pb-4 mb-6">
+          <div className="panel lg:col-span-2 space-y-6">
+            <div className="flex flex-wrap items-center justify-between border-b border-line-soft pb-5 gap-4">
               <div>
-                <span className="eyebrow block">ASSIGNED UNIT</span>
-                <h2 className="font-serif text-3xl font-light text-foreground">{progress.teamName}</h2>
-                <div className="flex items-center gap-2 mt-1">
+                <span className="eyebrow block">OFFICIAL UNIT DESIGNATION</span>
+                <h2 className="font-serif text-3xl font-light text-foreground">
+                  {teamData?.name || progress.teamName}
+                </h2>
+                <div className="flex items-center gap-3 mt-1.5">
                   <span className="font-mono text-xs text-muted-foreground">
-                    Invite Code: {progress.teamCode}
+                    Invite Code:
                   </span>
+                  <span className="font-mono text-xs text-accent font-semibold tracking-wider bg-[#1a1918] px-2 py-0.5 border border-border">
+                    {teamData?.inviteCode || progress.teamCode || 'TLS-PENDING'}
+                  </span>
+                  <button
+                    onClick={handleCopyCode}
+                    className="button button-secondary text-[11px] py-0.5 px-2 flex items-center gap-1.5"
+                    title="Copy invite code to clipboard"
+                  >
+                    {copied ? <Check size={12} className="text-[#8bb393]" /> : <Copy size={12} />}
+                    <span>{copied ? 'Copied' : 'Copy Code'}</span>
+                  </button>
+                  {teamData?.isCreator && (
+                    <button
+                      onClick={handleRotateCode}
+                      disabled={isSubmitting}
+                      className="button button-secondary text-[11px] py-0.5 px-2 flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+                      title="Generate a new invite code"
+                    >
+                      <RefreshCw size={12} className={isSubmitting ? 'animate-spin' : ''} />
+                      <span>Rotate Code</span>
+                    </button>
+                  )}
                 </div>
               </div>
-              <span className="status-pill open">ACTIVE TEAM UNIT</span>
+              <div className="flex flex-col items-end gap-1">
+                <span className="status-pill open">ACTIVE TACTICAL UNIT</span>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {teamData?.isCreator ? 'You are Lead Operative' : 'Allied Investigator'}
+                </span>
+              </div>
             </div>
 
-            <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground mb-4">
-              Team Roster
-            </p>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-[#111110] border border-border">
-                <div className="flex items-center gap-3">
-                  <span className="avatar">{user.callSign.slice(0, 2).toUpperCase()}</span>
-                  <div>
-                    <h4 className="font-serif text-base text-foreground">{user.fullName}</h4>
-                    <p className="font-mono text-[10px] text-muted-foreground">
-                      @{user.callSign} (Lead Operative)
-                    </p>
+            {/* Team Members Roster */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                  Active Operatives ({teamData?.members.length || 1} / {teamData?.maxSize || 5})
+                </p>
+                <button
+                  onClick={loadTeamData}
+                  disabled={isLoading || isSubmitting}
+                  className="font-mono text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                >
+                  <RefreshCw size={11} className={isLoading ? 'animate-spin' : ''} />
+                  <span>Refresh Roster</span>
+                </button>
+              </div>
+
+              <div className="space-y-2.5">
+                {(teamData?.members && teamData.members.length > 0) ? (
+                  teamData.members.map((member, idx) => (
+                    <div
+                      key={member.callSign || idx}
+                      className="flex items-center justify-between p-3.5 bg-[#111110] border border-border"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="avatar">
+                          {member.callSign.slice(0, 2).toUpperCase()}
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-serif text-base text-foreground">
+                              {member.fullName || member.callSign}
+                            </h4>
+                            {member.isCreator && (
+                              <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 bg-[#26241b] text-[#d4af37] border border-[#524a2c]">
+                                Lead Operative
+                              </span>
+                            )}
+                            {member.callSign.toLowerCase() === user.callSign.toLowerCase() && (
+                              <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 bg-[#1c241e] text-[#8bb393] border border-[#2f4f34]">
+                                You
+                              </span>
+                            )}
+                          </div>
+                          <p className="font-mono text-[11px] text-muted-foreground">
+                            @{member.callSign}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 font-mono text-xs text-[#8bb393]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#8bb393] inline-block animate-pulse" />
+                        <span>Connected</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center justify-between p-3.5 bg-[#111110] border border-border">
+                    <div className="flex items-center gap-3">
+                      <span className="avatar">{user.callSign.slice(0, 2).toUpperCase()}</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-serif text-base text-foreground">{user.fullName}</h4>
+                          <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 bg-[#26241b] text-[#d4af37] border border-[#524a2c]">
+                            Lead Operative
+                          </span>
+                        </div>
+                        <p className="font-mono text-[11px] text-muted-foreground">
+                          @{user.callSign} (You)
+                        </p>
+                      </div>
+                    </div>
+                    <span className="font-mono text-xs text-[#8bb393]">Connected</span>
                   </div>
-                </div>
-                <span className="font-mono text-xs text-[#8bb393]">Connected</span>
+                )}
               </div>
             </div>
 
-            <div className="mt-8 pt-4 border-t border-line-soft flex justify-between items-center">
+            {/* Footer Actions */}
+            <div className="mt-8 pt-5 border-t border-line-soft flex flex-wrap justify-between items-center gap-4">
               <span className="font-mono text-xs text-muted-foreground">
-                Capacity: 1 / 5 Investigators
+                Capacity: {teamData?.members.length || 1} / {teamData?.maxSize || 5} Operatives
               </span>
               <button
                 onClick={handleLeaveTeam}
-                className="button button-secondary text-xs text-crimson"
+                disabled={isSubmitting}
+                className="button button-secondary text-xs text-crimson hover:bg-[#2b1414] border-crimson/40"
               >
-                Disband / Leave Team
+                {teamData?.isCreator ? 'Disband / Depart Unit' : 'Leave Unit'}
               </button>
             </div>
           </div>
 
-          <div className="panel">
-            <div className="panel-heading">
-              <span>TEAM POLICIES</span>
-              <Users size={14} />
+          {/* Right Sidebar Info */}
+          <div className="space-y-6">
+            <div className="panel">
+              <div className="panel-heading">
+                <span>TEAM PROTOCOLS</span>
+                <Users size={14} />
+              </div>
+              <ul className="font-serif text-sm leading-relaxed text-muted-foreground space-y-3">
+                <li>
+                  <strong className="text-foreground">Shared Progression:</strong> Submitting a correct challenge solution unlocks that stage for every operative in your unit.
+                </li>
+                <li>
+                  <strong className="text-foreground">Location Intercept:</strong> Only one coordinate hypothesis may be lodged per unit in Stage 4. Coordinate with your team before lodging.
+                </li>
+                <li>
+                  <strong className="text-foreground">Roster Lock:</strong> Once the investigation launches, unit rosters are locked to maintain competition integrity.
+                </li>
+              </ul>
             </div>
-            <p className="font-serif text-sm leading-relaxed text-muted-foreground">
-              Teams share progress. Once the membership lock deadline passes on launch day, teams
-              cannot be disbanded or altered without staff authorization.
-            </p>
+
+            <div className="panel">
+              <div className="panel-heading">
+                <span>DATABASE REGISTRY</span>
+                <ShieldAlert size={14} />
+              </div>
+              <p className="font-serif text-xs leading-relaxed text-muted-foreground mb-3">
+                All team assignments and invite codes are verified against the authoritative database.
+              </p>
+              <div className="flex items-center gap-2 font-mono text-[11px] text-[#8bb393]">
+                <span className="w-2 h-2 rounded-full bg-[#8bb393]" />
+                <span>Authoritative Verification Active</span>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
-        /* Empty State for Solo User */
+        /* Empty State for Solo Operative */
         <div className="grid gap-8 lg:grid-cols-2">
-          <div className="panel space-y-4">
+          {/* Create Team Form */}
+          <div className="panel space-y-5">
             <div className="panel-heading">
-              <span>INVESTIGATOR STATUS</span>
-              <UserRound size={14} />
+              <span>FORM TACTICAL UNIT</span>
+              <UserPlus size={14} />
             </div>
             <h3 className="font-serif text-2xl font-light text-foreground">
-              Currently Investigating as a Solo Operative
+              Establish a New Allied Unit
             </h3>
             <p className="font-serif text-sm text-muted-foreground leading-relaxed">
-              You are currently registered as an independent investigator. You can play through the entire
-              mystery solo, or collaborate by establishing a new unit or entering an invite code.
+              Forming a tactical unit allows up to five investigators to combine efforts. As team lead,
+              you will receive a unique cryptographic invite code to share with your teammates.
             </p>
 
-            {createdMsg && <div className="p-3 bg-[#1e2a20] border border-[#3e5e43] text-[#a4d4ab] font-mono text-xs">{createdMsg}</div>}
-
             <form onSubmit={handleCreateTeam} className="pt-2 space-y-3">
-              <label className="block font-mono text-xs uppercase text-muted-foreground">
-                Create a New Team Unit
+              <label className="block font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                Unit Designation (3–40 characters)
               </label>
               <div className="flex gap-2">
                 <input
@@ -5003,40 +5329,83 @@ function TeamView({
                   placeholder="e.g. Presidio Night Watch"
                   value={teamInput}
                   onChange={(e) => setTeamInput(e.target.value)}
-                  className="bg-[#111110] border border-border p-2 font-mono text-xs flex-1 text-foreground"
+                  disabled={isSubmitting}
+                  className="bg-[#111110] border border-border p-2.5 font-mono text-xs flex-1 text-foreground focus:border-accent focus:outline-none"
                 />
-                <button type="submit" className="button button-primary">
-                  Form Team
+                <button
+                  type="submit"
+                  disabled={isSubmitting || teamInput.trim().length < 3}
+                  className="button button-primary flex items-center gap-2 whitespace-nowrap"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" />
+                      <span>Forming...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Users size={14} />
+                      <span>Form Unit</span>
+                    </>
+                  )}
                 </button>
               </div>
+              <p className="font-mono text-[10px] text-muted-foreground">
+                Note: Creating a unit will convert your account status from Solo Operative to Team Lead.
+              </p>
             </form>
           </div>
 
-          <div className="panel space-y-4">
+          {/* Join Team Form */}
+          <div className="panel space-y-5">
             <div className="panel-heading">
               <span>JOIN EXISTING UNIT</span>
-              <Users size={14} />
+              <Key size={14} />
             </div>
-            <h3 className="font-serif text-xl font-light text-foreground">
+            <h3 className="font-serif text-2xl font-light text-foreground">
               Have an Invite Code?
             </h3>
             <p className="font-serif text-sm text-muted-foreground leading-relaxed">
-              If a teammate has already created a unit, enter their 5-character invite code to link your
-              dossier.
+              If your lead operative has already established a unit, enter their invite code below to
+              join their roster and synchronize your investigation dossier.
             </p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="e.g. TLS-904B"
-                className="bg-[#111110] border border-border p-2 font-mono text-xs flex-1 text-foreground"
-              />
-              <button
-                className="button button-secondary"
-                onClick={() => alert('Team join codes will be verified against Supabase on launch.')}
-              >
-                Join Unit
-              </button>
-            </div>
+
+            <form onSubmit={handleJoinTeam} className="pt-2 space-y-3">
+              <label className="block font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                Enter Unit Invite Code
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="e.g. TLS-904B2C or 904B2C"
+                  value={joinInput}
+                  onChange={(e) => setJoinInput(e.target.value)}
+                  disabled={isSubmitting}
+                  className="bg-[#111110] border border-border p-2.5 font-mono text-xs flex-1 text-foreground uppercase tracking-widest focus:border-accent focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !joinInput.trim()}
+                  className="button button-secondary flex items-center gap-2 whitespace-nowrap"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" />
+                      <span>Verifying...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck size={14} />
+                      <span>Enlist in Unit</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <div className="flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#8bb393]" />
+                <span>Validated against departmental database registry</span>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -144,26 +144,28 @@ export function VideoAttachmentViewer({
   // Obvious Play Ending in Fullscreen button handler (User Gesture Guaranteed)
   const handlePlayEndingFullscreen = async () => {
     tacticalAudio.playButtonClick();
-    const elem = containerRef.current;
-    if (!elem) return;
+    const videoElem = videoRef.current;
+    if (!videoElem) return;
 
     // Start video playback
     await handlePlay();
 
-    // Request native fullscreen
+    // Request native fullscreen directly on the video element for true edge-to-edge playback
     try {
-      if (elem.requestFullscreen) {
-        await elem.requestFullscreen();
+      if (videoElem.requestFullscreen) {
+        await videoElem.requestFullscreen();
         setIsFullscreen(true);
-      } else if ((elem as unknown as { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen) {
-        await (elem as unknown as { webkitRequestFullscreen: () => Promise<void> }).webkitRequestFullscreen();
+      } else if ((videoElem as unknown as { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen) {
+        await (videoElem as unknown as { webkitRequestFullscreen: () => Promise<void> }).webkitRequestFullscreen();
+        setIsFullscreen(true);
+      } else if ((videoElem as unknown as { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen) {
+        (videoElem as unknown as { webkitEnterFullscreen: () => void }).webkitEnterFullscreen();
         setIsFullscreen(true);
       } else {
-        // Fallback to in-DOM near-fullscreen overlay
         setIsNearFullscreen(true);
       }
     } catch {
-      // Fullscreen denied or not supported in this iframe environment: activate near-fullscreen fallback
+      // Fullscreen denied or restricted in iframe: activate true edge-to-edge fallback
       setIsNearFullscreen(true);
     }
   };
@@ -281,14 +283,32 @@ export function VideoAttachmentViewer({
         onComplete={handleGlitchComplete}
       />
 
+      {/* True Edge-to-Edge Fullscreen Fallback Overlay */}
+      {isNearFullscreen && (
+        <div className="fixed inset-0 z-[999998] bg-black flex items-center justify-center m-0 p-0 overflow-hidden">
+          <video
+            src="/assets/FINAL_REVIEW.mp4"
+            autoPlay
+            playsInline
+            controls
+            onEnded={handleVideoEnded}
+            className="w-full h-full object-contain bg-black"
+          />
+          <button
+            type="button"
+            onClick={handleExitFullscreen}
+            className="absolute top-4 right-4 z-[999999] bg-black/75 hover:bg-black text-white/90 hover:text-white px-3 py-1.5 border border-white/25 text-xs font-mono flex items-center gap-1.5 cursor-pointer backdrop-blur-sm shadow-xl"
+          >
+            <Minimize2 size={14} />
+            <span>EXIT FULLSCREEN</span>
+          </button>
+        </div>
+      )}
+
       {/* Media Player Frame */}
       <div
         ref={containerRef}
-        className={`bg-[#080a09] border-2 border-[#1f2823] p-4 sm:p-6 shadow-2xl font-mono text-xs text-[#dcd6c9] transition-all duration-300 ${
-          isExpanded
-            ? 'fixed inset-0 z-50 p-6 flex flex-col justify-between bg-black/98 border-none overflow-hidden'
-            : ''
-        }`}
+        className="bg-[#080a09] border-2 border-[#1f2823] p-4 sm:p-6 shadow-2xl font-mono text-xs text-[#dcd6c9]"
       >
         {/* Header HUD */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1f2823] pb-3 mb-4">

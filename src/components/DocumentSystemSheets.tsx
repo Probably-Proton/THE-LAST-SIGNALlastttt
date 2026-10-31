@@ -185,13 +185,16 @@ export function RadioReceiverDoc({ item }: { item: EvidenceItem }) {
 // ---------------------------------------------------------------------------
 // 3. STAGE 2: FORENSIC EVIDENCE PHOTOGRAPH NEGATIVES (EV-0201 to EV-0204)
 // ---------------------------------------------------------------------------
-interface NegativeMetadata {
+export interface PlateData {
+  id: string;
+  plateLabel: string;
+  evidenceNo: string;
+  image: string;
   dept: string;
   address: string;
   caseNo: string;
   fileNo: string;
   dateFiled: string;
-  evidenceNo: string;
   subject: string;
   docRef: string;
   locationHeader: string;
@@ -205,14 +208,17 @@ interface NegativeMetadata {
   signatureDate: string;
 }
 
-const NEGATIVE_METADATA_MAP: Record<string, NegativeMetadata> = {
-  'EV-0201': {
+export const STAGE2_PLATES: PlateData[] = [
+  {
+    id: 'EV-0201',
+    plateLabel: 'Plate 1: Lake Herman Rd',
+    evidenceNo: '# 74-17',
+    image: '/assets/aistudio/WhatsApp_Image_2026-10-30_at_14.44.03_3e3a9c61.jpeg',
     dept: "SOLANO COUNTY SHERIFF'S DEPARTMENT // INVESTIGATION DIVISION",
     address: '501 UNION AVENUE, FAIRFIELD, CA 94533',
     caseNo: '68-1207',
     fileNo: '68-1187',
     dateFiled: '12/27/1968',
-    evidenceNo: '# 74-17',
     subject: 'Photographic Negative - Telemetry & Metadata Stamp',
     docRef: 'DOC-NEG-74-17 // LOCATION: COUNTY ARCHIVES SUB-BASEMENT BAY 17',
     locationHeader: 'COUNTY ARCHIVES SUB-BASEMENT BAY 17',
@@ -226,13 +232,16 @@ const NEGATIVE_METADATA_MAP: Record<string, NegativeMetadata> = {
     remarks: 'Possible connection to subject? Review with case files from 12/20/68 - 10/11/69.',
     signatureDate: '12/27/1968',
   },
-  'EV-0202': {
+  {
+    id: 'EV-0202',
+    plateLabel: 'Plate 2: Blue Rock Springs',
+    evidenceNo: '# 69-0715',
+    image: '/assets/aistudio/WhatsApp_Image_2026-10-30_at_14.44.33_edb54738.jpeg',
     dept: "SOLANO COUNTY SHERIFF'S DEPARTMENT // INVESTIGATION DIVISION",
     address: '501 UNION AVENUE, FAIRFIELD, CA 94533',
     caseNo: '69-0715',
     fileNo: '69-0932',
     dateFiled: '07/06/1969',
-    evidenceNo: '# 69-0715',
     subject: 'Photographic Negative - Crime Scene & Surroundings',
     docRef: 'DOC-NEG-69-0715 // LOCATION: BLUE ROCK SPRINGS PARK VALLEJO, CA',
     locationHeader: 'BLUE ROCK SPRINGS PARK VALLEJO, CA',
@@ -246,13 +255,16 @@ const NEGATIVE_METADATA_MAP: Record<string, NegativeMetadata> = {
     remarks: 'Possible connection to subject? Review with case files from 07/04-07/05/1969.',
     signatureDate: '07/06/1969',
   },
-  'EV-0203': {
+  {
+    id: 'EV-0203',
+    plateLabel: 'Plate 3: Lake Berryessa',
+    evidenceNo: '# 1026-69',
+    image: '/assets/aistudio/WhatsApp_Image_2026-10-30_at_14.44.15_2080eb42.jpeg',
     dept: "NAPA COUNTY SHERIFF'S DEPARTMENT // INVESTIGATION DIVISION",
     address: '935 DEAN STREET, NAPA, CA 94558',
     caseNo: '69-1026',
     fileNo: '69-0457',
     dateFiled: '10/01/1969',
-    evidenceNo: '# 1026-69',
     subject: 'Photographic Negative - Crime Scene & Surroundings',
     docRef: 'DOC-NEG-69-1026 // LOCATION: LAKE BERRYESSA, NAPA COUNTY, CA',
     locationHeader: 'LAKE BERRYESSA, NAPA COUNTY, CA',
@@ -266,13 +278,16 @@ const NEGATIVE_METADATA_MAP: Record<string, NegativeMetadata> = {
     remarks: 'Possible connection to subject? Review with case files from 09/27-09/28/1969.',
     signatureDate: '10/01/1969',
   },
-  'EV-0204': {
+  {
+    id: 'EV-0204',
+    plateLabel: 'Plate 4: Presidio Heights',
+    evidenceNo: '# 1127-69',
+    image: '/assets/aistudio/WhatsApp_Image_2026-10-30_at_14.44.24_6a138436.jpeg',
     dept: "CITY AND COUNTY OF SAN FRANCISCO SHERIFF'S DEPARTMENT // INVESTIGATION DIVISION",
     address: '850 BRYANT STREET, SAN FRANCISCO, CA 94103',
     caseNo: '69-1127',
     fileNo: '69-0549',
     dateFiled: '11/11/1969',
-    evidenceNo: '# 1127-69',
     subject: 'Photographic Negative - Crime Scene & Surroundings',
     docRef: 'DOC-NEG-69-1127 // LOCATION: PRESIDIO HEIGHTS, SAN FRANCISCO, CA',
     locationHeader: 'PRESIDIO HEIGHTS, SAN FRANCISCO, CA',
@@ -286,20 +301,96 @@ const NEGATIVE_METADATA_MAP: Record<string, NegativeMetadata> = {
     remarks: 'Possible connection to subject? Review with case files from 10/11/1969.',
     signatureDate: '11/12/1969',
   },
-};
+];
 
-export function ForensicNegativeDoc({ item }: { item: EvidenceItem }) {
-  const meta = NEGATIVE_METADATA_MAP[item.id] || NEGATIVE_METADATA_MAP['EV-0201'];
+export function ForensicNegativeDoc({
+  item,
+  activePlateIndex,
+  onPlateChange,
+}: {
+  item: EvidenceItem;
+  activePlateIndex?: number;
+  onPlateChange?: (idx: number) => void;
+}) {
+  const [internalPlateIdx, setInternalPlateIdx] = React.useState(0);
+  const currentPlateIdx = activePlateIndex !== undefined ? activePlateIndex : internalPlateIdx;
+  const currentPlate = STAGE2_PLATES[currentPlateIdx] || STAGE2_PLATES[0];
+
   const [showOriginalScan, setShowOriginalScan] = React.useState(false);
   const [scanZoom, setScanZoom] = React.useState(1);
 
+  const handleSelectPlate = (idx: number) => {
+    setInternalPlateIdx(idx);
+    if (onPlateChange) {
+      onPlateChange(idx);
+    }
+  };
+
   return (
-    <div className="paper-sheet p-6 sm:p-10 md:p-12 relative text-ink font-mono text-xs leading-relaxed space-y-5">
+    <div className="paper-sheet p-6 sm:p-10 md:p-12 relative text-ink font-mono text-xs leading-relaxed space-y-6">
+      {/* Dossier Header */}
+      <div className="border-b-2 border-ink pb-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase font-bold tracking-[0.24em] text-crimson">
+              CLASSIFIED DOSSIER // STAGE 02 FORENSICS
+            </span>
+            <span className="text-[9px] bg-ink/10 px-2 py-0.5 font-bold uppercase">
+              4 Plates Contained
+            </span>
+          </div>
+          <h2 className="font-serif text-2xl sm:text-3xl font-bold text-ink mt-1">
+            Archival Photographic Negative Dossier
+          </h2>
+          <p className="text-[10px] text-ink/70 mt-0.5">
+            DOCKET: DOC-NEG-DOSSIER-17 // ALL FOUR CRIME SCENE PERIMETERS
+          </p>
+        </div>
+        <div className="text-right">
+          <span className="stamp text-crimson border-crimson text-xs">EVIDENCE 4-IN-1</span>
+          <p className="text-[10px] text-ink/60 mt-1 uppercase font-bold">CASE {CASE_ID}</p>
+        </div>
+      </div>
+
+      {/* Multi-Photo Selector Tabs */}
+      <div className="space-y-2">
+        <div className="text-[10px] uppercase tracking-wider font-bold text-ink/70 flex items-center justify-between">
+          <span>SELECT PHOTOGRAPHIC PLATE TO INSPECT (1 OF 4):</span>
+          <span className="text-crimson font-mono font-semibold">{currentPlate.evidenceNo}</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {STAGE2_PLATES.map((p, idx) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => handleSelectPlate(idx)}
+              className={`p-2 border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                currentPlateIdx === idx
+                  ? 'border-crimson bg-[#ede3d1] font-bold shadow-sm'
+                  : 'border-ink/20 bg-white/40 hover:bg-white/70 text-ink/80'
+              }`}
+            >
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="font-bold text-ink">PLATE 0{idx + 1}</span>
+                <span className="font-mono text-[9px] text-crimson">{p.evidenceNo}</span>
+              </div>
+              <span className="text-[11px] truncate mt-1 text-ink/90 font-serif">
+                {p.locationName.split(',')[0]}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* View Mode Toggle Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/20 pb-3">
-        <span className="text-[10px] uppercase font-bold tracking-wider text-ink/70">
-          ARCHIVAL EVIDENCE PHOTOGRAPH
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-bold uppercase text-ink">
+            INSPECTING: {currentPlate.plateLabel}
+          </span>
+          <span className="text-[10px] text-ink/60">({currentPlate.county})</span>
+        </div>
+
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -307,18 +398,18 @@ export function ForensicNegativeDoc({ item }: { item: EvidenceItem }) {
               setShowOriginalScan(false);
               setScanZoom(1);
             }}
-            className={`px-2.5 py-1 text-[11px] font-bold border transition-colors ${
+            className={`px-3 py-1 text-[11px] font-bold border transition-colors cursor-pointer ${
               !showOriginalScan
                 ? 'bg-ink text-paper border-ink'
                 : 'bg-white/50 text-ink/70 border-ink/30 hover:text-ink'
             }`}
           >
-            Transcription View
+            Transcription Docket
           </button>
           <button
             type="button"
             onClick={() => setShowOriginalScan(true)}
-            className={`px-2.5 py-1 text-[11px] font-bold border transition-colors ${
+            className={`px-3 py-1 text-[11px] font-bold border transition-colors cursor-pointer ${
               showOriginalScan
                 ? 'bg-ink text-paper border-ink'
                 : 'bg-white/50 text-ink/70 border-ink/30 hover:text-ink'
@@ -333,21 +424,21 @@ export function ForensicNegativeDoc({ item }: { item: EvidenceItem }) {
         /* Original High-Resolution Facsimile Scan View */
         <div className="space-y-4">
           <div className="flex items-center justify-between bg-black/5 p-2 border border-ink/30 text-[11px]">
-            <span className="font-bold">FACSIMILE PLATE: {meta.evidenceNo}</span>
+            <span className="font-bold">FACSIMILE PLATE: {currentPlate.evidenceNo} — {currentPlate.locationName}</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setScanZoom((z) => Math.max(0.8, +(z - 0.2).toFixed(1)))}
-                className="px-2 py-0.5 bg-white border border-ink/30 text-ink font-bold hover:bg-ink/10"
+                className="px-2 py-0.5 bg-white border border-ink/30 text-ink font-bold hover:bg-ink/10 cursor-pointer"
                 title="Zoom Out"
               >
                 -
               </button>
-              <span className="w-12 text-center">{Math.round(scanZoom * 100)}%</span>
+              <span className="w-12 text-center font-mono">{Math.round(scanZoom * 100)}%</span>
               <button
                 type="button"
                 onClick={() => setScanZoom((z) => Math.min(2.5, +(z + 0.2).toFixed(1)))}
-                className="px-2 py-0.5 bg-white border border-ink/30 text-ink font-bold hover:bg-ink/10"
+                className="px-2 py-0.5 bg-white border border-ink/30 text-ink font-bold hover:bg-ink/10 cursor-pointer"
                 title="Zoom In"
               >
                 +
@@ -355,23 +446,23 @@ export function ForensicNegativeDoc({ item }: { item: EvidenceItem }) {
               <button
                 type="button"
                 onClick={() => setScanZoom(1)}
-                className="px-2 py-0.5 bg-white border border-ink/30 text-ink font-bold hover:bg-ink/10 text-[10px]"
+                className="px-2 py-0.5 bg-white border border-ink/30 text-ink font-bold hover:bg-ink/10 text-[10px] cursor-pointer"
               >
                 Reset
               </button>
             </div>
           </div>
 
-          <div className="border-2 border-ink/40 p-2 bg-[#121210] overflow-auto max-h-[70vh] flex items-center justify-center">
+          <div className="border-2 border-ink/40 p-2 bg-[#121210] overflow-auto max-h-[70vh] flex items-center justify-center shadow-inner">
             <img
-              src={item.image}
-              alt={item.title}
+              src={currentPlate.image}
+              alt={currentPlate.plateLabel}
               style={{ transform: `scale(${scanZoom})`, transformOrigin: 'top center' }}
               className="transition-transform duration-150 max-w-full h-auto object-contain shadow-2xl"
             />
           </div>
-          <p className="text-[10px] text-ink/60 text-center m-0">
-            Official archival negative negative recovered under chain-of-custody protocols.
+          <p className="text-[10px] text-ink/60 text-center m-0 italic">
+            Plate 0{currentPlateIdx + 1} of 4: Optical archival negative preserved under chain-of-custody protocols. Stamped marginal telemetry intact.
           </p>
         </div>
       ) : (
@@ -380,37 +471,39 @@ export function ForensicNegativeDoc({ item }: { item: EvidenceItem }) {
           {/* Header */}
           <div className="border-b-2 border-ink pb-3 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-ink/80">{meta.dept}</p>
-              <p className="text-[9px] text-ink/60">{meta.address}</p>
-              <h2 className="font-serif text-2xl font-bold text-ink mt-2">EVIDENCE PHOTOGRAPH</h2>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-ink/80">{currentPlate.dept}</p>
+              <p className="text-[9px] text-ink/60">{currentPlate.address}</p>
+              <h2 className="font-serif text-2xl font-bold text-ink mt-2">
+                EVIDENCE PHOTOGRAPH // {currentPlate.evidenceNo}
+              </h2>
             </div>
             <div className="text-[10px] font-mono sm:text-right border sm:border-0 border-ink/20 p-2 sm:p-0 bg-white/30 sm:bg-transparent">
-              <div>CASE NO.: <span className="font-bold">{meta.caseNo}</span></div>
-              <div>FILE NO.: <span className="font-bold">{meta.fileNo}</span></div>
-              <div>DATE FILED: <span className="font-bold">{meta.dateFiled}</span></div>
+              <div>CASE NO.: <span className="font-bold">{currentPlate.caseNo}</span></div>
+              <div>FILE NO.: <span className="font-bold">{currentPlate.fileNo}</span></div>
+              <div>DATE FILED: <span className="font-bold">{currentPlate.dateFiled}</span></div>
             </div>
           </div>
 
           {/* Metadata Block */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-black/5 border border-ink/20 text-[11px]">
-            <div><span className="text-ink/60 uppercase">SUBJECT:</span> <strong>{meta.subject}</strong></div>
+            <div><span className="text-ink/60 uppercase">SUBJECT:</span> <strong>{currentPlate.subject}</strong></div>
             <div><span className="text-ink/60 uppercase">ORIGIN:</span> <strong>Forensic Imaging Laboratory</strong></div>
-            <div className="sm:col-span-2"><span className="text-ink/60 uppercase">REFERENCE:</span> {meta.docRef}</div>
-            <div><span className="text-ink/60 uppercase">DATE ACQUIRED:</span> <strong>{meta.dateAcquired}</strong></div>
-            <div><span className="text-ink/60 uppercase">PHOTOGRAPHER:</span> <strong>{meta.photographer}</strong></div>
+            <div className="sm:col-span-2"><span className="text-ink/60 uppercase">REFERENCE:</span> {currentPlate.docRef}</div>
+            <div><span className="text-ink/60 uppercase">DATE ACQUIRED:</span> <strong>{currentPlate.dateAcquired}</strong></div>
+            <div><span className="text-ink/60 uppercase">PHOTOGRAPHER:</span> <strong>{currentPlate.photographer}</strong></div>
           </div>
 
           {/* Photo Frame */}
           <div className="border border-ink/40 p-2 bg-black/90 shadow-inner flex flex-col items-center">
             <div className="aspect-[4/3] w-full max-w-lg overflow-hidden bg-black relative flex items-center justify-center">
               <img
-                src={item.image}
-                alt={item.title}
+                src={currentPlate.image}
+                alt={currentPlate.plateLabel}
                 className="w-full h-full object-contain"
               />
             </div>
             <div className="w-full max-w-lg text-[10px] text-[#9ca3af] flex justify-between pt-1.5 font-mono">
-              <span>NEGATIVE TELEMETRY EXIF</span>
+              <span>NEGATIVE TELEMETRY EXIF: {currentPlate.evidenceNo}</span>
               <span>FORENSIC SCAN: 4000 DPI</span>
             </div>
           </div>
@@ -421,7 +514,7 @@ export function ForensicNegativeDoc({ item }: { item: EvidenceItem }) {
               <span className="font-bold uppercase tracking-wider text-[11px] block border-b border-ink/20 pb-1">
                 PHOTO DETAILS:
               </span>
-              <p className="text-[11px] text-ink/80 leading-relaxed m-0">{meta.photoDetails}</p>
+              <p className="text-[11px] text-ink/80 leading-relaxed m-0">{currentPlate.photoDetails}</p>
             </div>
             <div className="space-y-1.5 bg-black/5 p-3 border border-ink/20">
               <span className="font-bold uppercase tracking-wider text-[11px] block border-b border-ink/20 pb-1 flex items-center gap-1.5">
@@ -429,12 +522,12 @@ export function ForensicNegativeDoc({ item }: { item: EvidenceItem }) {
                 <span>LOCATION &amp; COORDINATES:</span>
               </span>
               <div className="text-[11px] space-y-1 pt-1">
-                <div><span className="text-ink/60 uppercase">County:</span> <strong>{meta.county}</strong></div>
-                <div><span className="text-ink/60 uppercase">Location:</span> <strong>{meta.locationName}</strong></div>
+                <div><span className="text-ink/60 uppercase">County:</span> <strong>{currentPlate.county}</strong></div>
+                <div><span className="text-ink/60 uppercase">Location:</span> <strong>{currentPlate.locationName}</strong></div>
                 <div className="pt-1">
-                  <span className="text-ink/60 uppercase block text-[9px]">Coordinates:</span>
+                  <span className="text-ink/60 uppercase block text-[9px]">Coordinates / Marginal Telemetry:</span>
                   <code className="text-xs font-bold text-ink bg-white/70 px-1.5 py-0.5 border border-ink/20 inline-block font-mono select-all">
-                    {meta.coordinates}
+                    {currentPlate.coordinates}
                   </code>
                 </div>
               </div>
@@ -449,12 +542,12 @@ export function ForensicNegativeDoc({ item }: { item: EvidenceItem }) {
                 <li>Negative shows signs of age and degradation.</li>
                 <li>Further enhancement may be required for analysis.</li>
                 <li>Cross-reference with telemetry data and metadata logs.</li>
-                <li>See attached metadata report (Doc. Ref: {meta.docRef.split('//')[0].trim()}-A).</li>
+                <li>Plate {currentPlateIdx + 1} of 4 in Docket {CASE_ID}.</li>
               </ul>
             </div>
             <div className="border-2 border-dashed border-ink/70 p-3 text-center shrink-0 self-center sm:self-start bg-white/40">
               <div className="text-[9px] uppercase tracking-widest text-ink/70">EVIDENCE</div>
-              <div className="font-mono font-bold text-base text-crimson">{meta.evidenceNo}</div>
+              <div className="font-mono font-bold text-base text-crimson">{currentPlate.evidenceNo}</div>
               <div className="text-[8px] uppercase tracking-widest text-ink/60 border-t border-ink/30 pt-0.5 mt-0.5">
                 DO NOT REMOVE FROM FILE
               </div>
@@ -466,7 +559,7 @@ export function ForensicNegativeDoc({ item }: { item: EvidenceItem }) {
             <span className="font-bold uppercase text-[9px] tracking-wider block text-amber-900">
               ADDITIONAL REMARKS:
             </span>
-            <p className="italic m-0 mt-0.5">{meta.remarks}</p>
+            <p className="italic m-0 mt-0.5">{currentPlate.remarks}</p>
           </div>
 
           {/* Signatures */}
@@ -478,7 +571,7 @@ export function ForensicNegativeDoc({ item }: { item: EvidenceItem }) {
             </div>
             <div>
               <span className="text-[9px] uppercase text-ink/60">DATE: </span>
-              <strong>{meta.signatureDate}</strong>
+              <strong>{currentPlate.signatureDate}</strong>
             </div>
           </div>
         </div>

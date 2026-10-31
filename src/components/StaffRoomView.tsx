@@ -15,7 +15,7 @@
  * 6. Settings: Timeline configurations, prototype switches, and clear backend integration disclosures.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Lock,
   Unlock,
@@ -34,6 +34,7 @@ import {
   Sparkles,
   ChevronRight,
   Eye,
+  EyeOff,
   X,
   Key,
   Award,
@@ -58,11 +59,7 @@ import {
   getAllUsers,
   getUserProgress,
   saveUserProgress,
-  isUserStaff,
-  hasAnyStaffAccounts,
-  registerStaffOrganizer,
 } from '../lib/prototypeAuth';
-import { loginUser } from '../lib/authService';
 import {
   STAGE_SCHEDULE,
   REGISTRATION_OPEN_IST,
@@ -78,7 +75,9 @@ import { ISTClockWidget } from './ISTClockWidget';
 
 import {
   getAllTicketsForStaff,
+  getAllTicketsForStaffAsync,
   updateTicketByStaff,
+  updateTicketByStaffAsync,
   CATEGORY_LABELS,
   STATUS_LABELS,
   type SupportTicket,
@@ -92,11 +91,12 @@ import {
   type MessageTone,
 } from '../lib/messagesStore';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { tacticalAudio } from '../lib/tacticalAudio';
 
 interface StaffRoomViewProps {
   user?: PrototypeUser;
-  progress: UserProgress;
-  onUpdateProgress: (updater: (prev: UserProgress) => UserProgress) => void;
+  progress?: UserProgress;
+  onUpdateProgress?: (updater: (prev: UserProgress) => UserProgress) => void;
   onLogout?: () => void;
 }
 
@@ -121,31 +121,41 @@ interface DestructiveActionState {
 
 export function StaffRoomView({
   user,
-  progress,
-  onUpdateProgress,
+  progress: passedProgress,
+  onUpdateProgress: passedOnUpdateProgress,
   onLogout,
 }: StaffRoomViewProps) {
-  // Staff authorization state based on verified account credentials
-  const [activeStaffUser, setActiveStaffUser] = useState<PrototypeUser | null>(() => {
-    if (user && isUserStaff(user)) return user;
-    return null;
+  // Safe progress fallback when opened by standalone staff
+  const [internalProgress, setInternalProgress] = useState<UserProgress>(() => {
+    return passedProgress ?? getUserProgress(user?.callSign || 'organizer');
+  });
+  const progress = passedProgress ?? internalProgress;
+  const onUpdateProgress = passedOnUpdateProgress ?? ((updater: (prev: UserProgress) => UserProgress) => {
+    setInternalProgress((prev) => {
+      const next = updater(prev);
+      saveUserProgress(next);
+      return next;
+    });
   });
 
-  const isStaffAuthorized = Boolean((user && isUserStaff(user)) || (activeStaffUser && isUserStaff(activeStaffUser)));
-  const unlocked = isStaffAuthorized;
+  // Password-only server-authenticated staff session token (stored in sessionStorage)
+  const [staffToken, setStaffToken] = useState<string>(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      return sessionStorage.getItem('tls_staff_token') || '';
+    }
+    return '';
+  });
+  const [unlocked, setUnlocked] = useState<boolean>(() => Boolean(staffToken));
+  const [masterPassword, setMasterPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+  const [lockoutSeconds, setLockoutSeconds] = useState<number>(0);
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
 
   // Active navigation tab
   const [activeTab, setActiveTab] = useState<StaffTab>('overview');
-
-  // Staff login / initialization form state
-  const [staffCallSign, setStaffCallSign] = useState('organizer');
-  const [staffPassword, setStaffPassword] = useState('');
-  const [setupFullName, setSetupFullName] = useState('Head Event Organizer');
-  const [setupConfirm, setSetupConfirm] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
-  const [showSetupMode, setShowSetupMode] = useState<boolean>(() => !hasAnyStaffAccounts());
-  const [switchAccountPrompt, setSwitchAccountPrompt] = useState(false);
 
   // Participants tab search & filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -176,7 +186,7 @@ export function StaffRoomView({
   // Transient success toast notification
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
 
-  // Support Tickets State
+  // Support Tickets State: Shared inbox for all investigators
   const [allTickets, setAllTickets] = useState<SupportTicket[]>(() => getAllTicketsForStaff(unlocked));
   const [ticketStatusFilter, setTicketStatusFilter] = useState<'ALL' | TicketStatus>('ALL');
   const [ticketCategoryFilter, setTicketCategoryFilter] = useState<string>('ALL');
@@ -195,8 +205,54 @@ export function StaffRoomView({
   const [dispatchTargetCallSign, setDispatchTargetCallSign] = useState('');
   const [dispatchText, setDispatchText] = useState('');
 
-  const reloadTickets = () => {
-    setAllTickets(getAllTicketsForStaff(unlocked));
+  // Validate active staff session with server on mount
+  useEffect(() => {
+    if (staffToken) {
+      fetch('/api/staff/verify-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${staffToken}`,
+        },
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.valid) {
+            setUnlocked(true);
+            setSessionExpiresAt(data.expiresAt || null);
+            getAllTicketsForStaffAsync(true, staffToken).then(setAllTickets);
+          } else {
+            sessionStorage.removeItem('tls_staff_token');
+            setStaffToken('');
+            setUnlocked(false);
+          }
+        })
+        .catch(() => {
+          // Keep active if offline/mock
+          setUnlocked(true);
+        });
+    }
+  }, [staffToken]);
+
+  // Handle countdown timer for rate limiting
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setAuthError('');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutSeconds]);
+
+  const reloadTickets = async () => {
+    const tickets = await getAllTicketsForStaffAsync(unlocked, staffToken);
+    setAllTickets(tickets);
   };
 
   const reloadDispatches = () => {
@@ -210,79 +266,79 @@ export function StaffRoomView({
     }, 4500);
   };
 
-  const handleStaffLogin = async (e: React.FormEvent) => {
+  // Dedicated Password-Only Authorization Handler (Zero client-side secrets)
+  const handleMasterPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
-    setIsSubmittingAuth(true);
-    try {
-      const res = await loginUser(staffCallSign.trim(), staffPassword);
-      if (!res.success || !res.user) {
-        setAuthError(res.error || 'Invalid credentials. Staff authorization failed.');
-        return;
-      }
-      if (!isUserStaff(res.user)) {
-        setAuthError(`Access denied: Account [${res.user.callSign}] does not possess Staff or Owner clearance.`);
-        return;
-      }
-      setActiveStaffUser(res.user);
-      setAllTickets(getAllTicketsForStaff(true));
-      setCustomDispatches(getCustomStaffDispatches());
-      setStaffPassword('');
-      showFeedback(`Staff authorization confirmed. Welcome, ${res.user.fullName}.`);
-    } catch {
-      setAuthError('Authentication service failed to respond.');
-    } finally {
-      setIsSubmittingAuth(false);
-    }
-  };
-
-  const handleInitialOrganizerSetup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError('');
-    if (!staffCallSign.trim() || !staffPassword) {
-      setAuthError('Organizer call-sign and password are required.');
-      return;
-    }
-    if (staffPassword.length < 8) {
-      setAuthError('Organizer password must be at least 8 characters long.');
-      return;
-    }
-    if (staffPassword !== setupConfirm) {
-      setAuthError('Passwords do not match. Please re-enter.');
+    if (!masterPassword.trim()) {
+      setAuthError('Staff Master Password is required.');
       return;
     }
 
     setIsSubmittingAuth(true);
+    tacticalAudio.playButtonClick();
+
     try {
-      const res = await registerStaffOrganizer({
-        fullName: setupFullName.trim() || 'Head Event Organizer',
-        callSign: staffCallSign.trim(),
-        passwordPlain: staffPassword,
-        role: 'owner',
+      const resp = await fetch('/api/staff/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: masterPassword }),
       });
-      if (!res.success || !res.user) {
-        setAuthError(res.error || 'Failed to initialize organizer account.');
+
+      const data = await resp.json();
+
+      if (resp.status === 429) {
+        tacticalAudio.playError();
+        setAuthError(data.error || 'Console locked due to repeated failed authorization attempts.');
+        if (data.retryAfterSeconds) {
+          setLockoutSeconds(data.retryAfterSeconds);
+        }
         return;
       }
-      setActiveStaffUser(res.user);
-      setShowSetupMode(false);
-      setAllTickets(getAllTicketsForStaff(true));
+
+      if (!resp.ok || !data.success) {
+        tacticalAudio.playError();
+        setAuthError(data.error || 'Invalid staff authorization password.');
+        if (typeof data.remainingAttempts === 'number') {
+          setRemainingAttempts(data.remainingAttempts);
+        }
+        return;
+      }
+
+      // Authorization successful!
+      tacticalAudio.playSuccess();
+      sessionStorage.setItem('tls_staff_token', data.token);
+      setStaffToken(data.token);
+      setUnlocked(true);
+      setSessionExpiresAt(data.expiresAt || null);
+      setMasterPassword('');
+      setAuthError('');
+      setRemainingAttempts(null);
+
+      const tickets = await getAllTicketsForStaffAsync(true, data.token);
+      setAllTickets(tickets);
       setCustomDispatches(getCustomStaffDispatches());
-      setStaffPassword('');
-      setSetupConfirm('');
-      showFeedback(`Primary Organizer account initialized successfully. Welcome, ${res.user.fullName}.`);
-    } catch {
-      setAuthError('Failed to initialize account.');
+      showFeedback('Staff Master Clearance verified. Operations Console decrypted.');
+    } catch (err: any) {
+      tacticalAudio.playError();
+      setAuthError('Unable to connect to authorization server. Please ensure backend is active.');
     } finally {
       setIsSubmittingAuth(false);
     }
   };
 
-  const handleDeauthorize = () => {
-    setActiveStaffUser(null);
-    setStaffPassword('');
+  const handleDeauthorize = async () => {
+    try {
+      await fetch('/api/staff/logout', { method: 'POST' });
+    } catch {}
+    sessionStorage.removeItem('tls_staff_token');
+    setStaffToken('');
+    setUnlocked(false);
+    setSessionExpiresAt(null);
+    setMasterPassword('');
     setAuthError('');
     if (onLogout) onLogout();
+    showFeedback('Staff console session terminated and locked.');
   };
 
   // Retrieve real registered users from prototype local storage
@@ -693,224 +749,107 @@ export function StaffRoomView({
      ========================================================================= */
 
   if (!unlocked) {
-    // If active user is a student investigator and hasn't requested switching to staff
-    if (user && !isUserStaff(user) && !switchAccountPrompt) {
-      return (
-        <div className="min-h-[70vh] flex items-center justify-center p-4">
-          <div className="panel max-w-md w-full text-center p-8 space-y-5 border-crimson/50 bg-[#10100f] shadow-2xl">
-            <div className="size-14 mx-auto rounded-full bg-crimson/10 border border-crimson/40 flex items-center justify-center">
-              <ShieldAlert size={26} className="text-crimson" />
+    return (
+      <div className="min-h-[75vh] flex items-center justify-center p-4">
+        <div className="panel max-w-md w-full p-8 space-y-6 border-crimson/50 bg-[#10100f] shadow-2xl relative overflow-hidden">
+          {/* Scanline atmospheric accent */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-crimson to-transparent" />
+
+          <div className="text-center space-y-3">
+            <div className="size-14 mx-auto rounded-full bg-crimson/10 border border-crimson/40 flex items-center justify-center shadow-[0_0_15px_rgba(180,30,30,0.25)]">
+              <Lock size={26} className="text-crimson" />
             </div>
 
             <div>
-              <span className="eyebrow block text-crimson mb-1">ACCESS DENIED // 403 FORBIDDEN</span>
+              <span className="eyebrow block text-crimson mb-1 font-mono text-[11px] tracking-[0.25em]">
+                CASE TLS-0017 // CLASSIFIED OPERATIONS
+              </span>
               <h2 className="font-serif text-2xl font-light text-foreground">
-                Participant Restricted Area
+                Staff Control Console
               </h2>
             </div>
 
             <p className="font-mono text-xs text-muted-foreground leading-relaxed">
-              Active operative call-sign <strong className="text-foreground">[{user.callSign}]</strong> does not possess
-              Staff or Owner clearance. Case administrative controls, solution keys, and participant dossiers are
-              isolated by database Row-Level Security.
+              Restricted to authorized event organizers. Enter the single Master Operations Password
+              to decrypt participant dossiers, stage overrides, and the unified support desk.
             </p>
-
-            <div className="pt-2 flex flex-col gap-2">
-              <button
-                onClick={() => setSwitchAccountPrompt(true)}
-                className="button button-primary w-full justify-center"
-              >
-                Sign In with Staff Account
-              </button>
-              <button
-                onClick={() => {
-                  window.location.href = '/dashboard';
-                }}
-                className="button button-secondary w-full justify-center"
-              >
-                Return to Active Investigation
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // First-Time Setup Mode: when no organizer accounts exist yet
-    if (showSetupMode) {
-      return (
-        <div className="min-h-[70vh] flex items-center justify-center p-4">
-          <div className="panel max-w-md w-full p-8 space-y-5 border-amber-600/50 bg-[#10100f] shadow-2xl">
-            <div className="size-14 mx-auto rounded-full bg-amber-500/10 border border-amber-500/40 flex items-center justify-center">
-              <Key size={26} className="text-amber-400" />
-            </div>
-
-            <div className="text-center">
-              <span className="eyebrow block text-amber-400 mb-1">INITIAL REPOSITORY CONFIGURATION</span>
-              <h2 className="font-serif text-2xl font-light text-foreground">
-                Initialize Organizer Account
-              </h2>
-              <p className="font-mono text-xs text-muted-foreground mt-1">
-                No staff account exists yet. Establish your initial organizer credentials.
-                Passwords are cryptographically hashed using Web Crypto SHA-256 before storage.
-              </p>
-            </div>
-
-            {authError && (
-              <div className="p-3 bg-red-950/40 border border-crimson/60 text-xs font-mono text-red-200 text-left flex items-start gap-2">
-                <AlertTriangle size={14} className="text-crimson shrink-0 mt-0.5" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleInitialOrganizerSetup} className="space-y-3 pt-1">
-              <div className="space-y-1">
-                <label className="font-mono text-[10px] uppercase text-muted-foreground block">
-                  Organizer Full Name / Title
-                </label>
-                <input
-                  type="text"
-                  value={setupFullName}
-                  onChange={(e) => setSetupFullName(e.target.value)}
-                  className="w-full bg-[#161615] border border-border p-2.5 font-mono text-xs text-foreground focus:outline-none focus:border-amber-500 transition-colors"
-                  placeholder="Lead Event Organizer"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-mono text-[10px] uppercase text-muted-foreground block">
-                  Staff Call-Sign (Handle)
-                </label>
-                <input
-                  type="text"
-                  value={staffCallSign}
-                  onChange={(e) => setStaffCallSign(e.target.value)}
-                  className="w-full bg-[#161615] border border-border p-2.5 font-mono text-xs text-foreground focus:outline-none focus:border-amber-500 transition-colors"
-                  placeholder="organizer"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-mono text-[10px] uppercase text-muted-foreground block">
-                  Master Staff Password (min 8 chars)
-                </label>
-                <input
-                  type="password"
-                  value={staffPassword}
-                  onChange={(e) => setStaffPassword(e.target.value)}
-                  className="w-full bg-[#161615] border border-border p-2.5 font-mono text-xs text-foreground focus:outline-none focus:border-amber-500 transition-colors"
-                  placeholder="Enter strong password..."
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-mono text-[10px] uppercase text-muted-foreground block">
-                  Confirm Password
-                </label>
-                <input
-                  type="password"
-                  value={setupConfirm}
-                  onChange={(e) => setSetupConfirm(e.target.value)}
-                  className="w-full bg-[#161615] border border-border p-2.5 font-mono text-xs text-foreground focus:outline-none focus:border-amber-500 transition-colors"
-                  placeholder="Re-enter password..."
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmittingAuth}
-                className="button button-primary w-full justify-center !bg-amber-600 hover:!bg-amber-500 !border-amber-500"
-              >
-                {isSubmittingAuth ? 'Initializing Credentials...' : 'Create Organizer Account'}
-              </button>
-            </form>
-
-            <div className="pt-2 border-t border-border/60 text-[10px] font-mono text-muted-foreground text-center">
-              Staff roles are enforced server-side. Passwords are never stored in plaintext.
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // Standard Staff / Organizer Login
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center p-4">
-        <div className="panel max-w-md w-full text-center p-8 space-y-5 border-crimson/50 bg-[#10100f] shadow-2xl">
-          <div className="size-14 mx-auto rounded-full bg-crimson/10 border border-crimson/40 flex items-center justify-center">
-            <Lock size={26} className="text-crimson" />
           </div>
 
-          <div>
-            <span className="eyebrow block text-crimson mb-1">RESTRICTED JURISDICTION</span>
-            <h2 className="font-serif text-2xl font-light text-foreground">
-              Staff Room // Control Console
-            </h2>
-          </div>
-
-          <p className="font-mono text-xs text-muted-foreground leading-relaxed">
-            This administration surface is restricted exclusively to authorized event organizers
-            and lead game directors. Please authenticate with your staff account credentials.
-          </p>
-
-          {authError && (
-            <div className="p-3 bg-red-950/40 border border-crimson/60 text-xs font-mono text-red-200 text-left flex items-start gap-2">
-              <AlertTriangle size={14} className="text-crimson shrink-0 mt-0.5" />
-              <span>{authError}</span>
+          {/* Rate-limit lockout countdown banner */}
+          {lockoutSeconds > 0 && (
+            <div className="p-3 bg-red-950/80 border border-crimson text-xs font-mono text-red-200 flex items-center gap-2">
+              <Clock3 size={15} className="text-crimson animate-pulse shrink-0" />
+              <div>
+                <strong className="block text-white uppercase">CONSOLE ACCESS LOCKED</strong>
+                <span>Cool-down active: {Math.floor(lockoutSeconds / 60)}m {lockoutSeconds % 60}s remaining.</span>
+              </div>
             </div>
           )}
 
-          <form onSubmit={handleStaffLogin} className="space-y-4 pt-1">
-            <div className="space-y-1 text-left">
-              <label className="font-mono text-[10px] uppercase text-muted-foreground block">
-                Staff Call-Sign
-              </label>
-              <input
-                type="text"
-                placeholder="Staff call-sign (e.g. organizer)..."
-                value={staffCallSign}
-                onChange={(e) => setStaffCallSign(e.target.value)}
-                autoFocus
-                className="w-full bg-[#161615] border border-border p-2.5 font-mono text-xs text-foreground focus:outline-none focus:border-crimson transition-colors"
-              />
+          {authError && lockoutSeconds <= 0 && (
+            <div className="p-3 bg-red-950/50 border border-crimson/60 text-xs font-mono text-red-200 flex items-start gap-2">
+              <AlertTriangle size={15} className="text-crimson shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <span>{authError}</span>
+                {remainingAttempts !== null && (
+                  <span className="block text-[11px] text-amber-300">
+                    Warning: Maximum 5 attempts allowed per 15-minute window.
+                  </span>
+                )}
+              </div>
             </div>
+          )}
 
-            <div className="space-y-1 text-left">
-              <label className="font-mono text-[10px] uppercase text-muted-foreground block">
-                Password
+          <form onSubmit={handleMasterPasswordSubmit} className="space-y-4 pt-1 font-mono text-xs">
+            <div className="space-y-1.5 text-left">
+              <label className="text-[10px] uppercase text-muted-foreground block font-bold tracking-wider">
+                Authorized Staff Master Password
               </label>
-              <input
-                type="password"
-                placeholder="Staff account password..."
-                value={staffPassword}
-                onChange={(e) => setStaffPassword(e.target.value)}
-                className="w-full bg-[#161615] border border-border p-2.5 font-mono text-xs text-foreground focus:outline-none focus:border-crimson transition-colors"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter Master Operations Password..."
+                  value={masterPassword}
+                  onChange={(e) => setMasterPassword(e.target.value)}
+                  disabled={isSubmittingAuth || lockoutSeconds > 0}
+                  autoFocus
+                  required
+                  className="w-full bg-[#161615] border border-border p-3 pr-10 text-foreground font-mono text-xs focus:outline-none focus:border-crimson transition-colors disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
 
             <button
               type="submit"
-              disabled={isSubmittingAuth}
-              className="button button-primary w-full justify-center"
+              disabled={isSubmittingAuth || !masterPassword.trim() || lockoutSeconds > 0}
+              className="button button-primary w-full justify-center py-2.5 font-bold tracking-wider uppercase text-xs disabled:opacity-50"
             >
-              {isSubmittingAuth ? 'Verifying Credentials...' : 'Authenticate Staff Access'}
+              {isSubmittingAuth ? 'Decrypting Console...' : 'Authorize Master Access'}
             </button>
           </form>
 
-          {hasAnyStaffAccounts() && (
-            <div className="pt-2 text-center">
-              <button
-                type="button"
-                onClick={() => setShowSetupMode(true)}
-                className="text-[11px] font-mono text-muted-foreground hover:text-foreground underline"
-              >
-                Reset or register secondary organizer account
-              </button>
-            </div>
-          )}
-
-          <div className="pt-2 border-t border-border/60 text-[10px] font-mono text-muted-foreground">
-            Authoritative multi-organizer RBAC is enforced server-side via Supabase Row-Level Security.
+          <div className="pt-2 border-t border-border/60 flex flex-col gap-2 text-center text-[11px] font-mono">
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.location.href = user ? '/dashboard' : '/';
+                }
+              }}
+              className="text-muted-foreground hover:text-foreground underline transition-colors"
+            >
+              ← Return to {user ? 'Active Investigation' : 'Case Homepage'}
+            </button>
+            <span className="text-[10px] text-muted-foreground/75">
+              Zero client-side secrets · Credentials verified exclusively through server security endpoint
+            </span>
           </div>
         </div>
       </div>
@@ -1813,17 +1752,24 @@ export function StaffRoomView({
 
                       {/* Staff Action Form */}
                       <form
-                        onSubmit={(e) => {
+                        onSubmit={async (e) => {
                           e.preventDefault();
-                          const res = updateTicketByStaff(unlocked, currTicket.id, {
-                            status: ticketStatusDraft,
-                            priority: ticketPriorityDraft,
-                            staffResponse: ticketResponseDraft,
-                            staffNotes: ticketNotesDraft,
-                            staffCallSign: user?.callSign || 'STAFF_DIRECTORATE',
-                          });
+                          tacticalAudio.playButtonClick();
+                          const res = await updateTicketByStaffAsync(
+                            unlocked,
+                            currTicket.id,
+                            {
+                              status: ticketStatusDraft,
+                              priority: ticketPriorityDraft,
+                              staffResponse: ticketResponseDraft,
+                              staffNotes: ticketNotesDraft,
+                              staffCallSign: user?.callSign || 'STAFF_DIRECTORATE',
+                            },
+                            staffToken
+                          );
 
                           if (res.success && res.ticket) {
+                            tacticalAudio.playSuccess();
                             appendAuditEntry(
                               'STAFF_TICKET_UPDATE',
                               `Staff updated docket ${currTicket.id} (${ticketStatusDraft}) for operative ${currTicket.callSign}.`,
@@ -1833,9 +1779,10 @@ export function StaffRoomView({
                                 newValue: ticketStatusDraft,
                               }
                             );
-                            reloadTickets();
-                            showFeedback(`Ticket ${currTicket.id} status updated to ${ticketStatusDraft}.`);
+                            await reloadTickets();
+                            showFeedback(`Ticket ${currTicket.id} updated successfully (${ticketStatusDraft}).`);
                           } else {
+                            tacticalAudio.playError();
                             showFeedback(res.error || 'Failed to update ticket.');
                           }
                         }}

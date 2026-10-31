@@ -273,6 +273,81 @@ export function updateTicketByStaff(
   return { success: true, ticket: updated };
 }
 
+export async function updateTicketByStaffAsync(
+  isStaffAuthorized: boolean,
+  ticketId: string,
+  updates: {
+    status?: TicketStatus;
+    priority?: TicketPriority;
+    staffResponse?: string;
+    staffNotes?: string;
+    staffCallSign?: string;
+  },
+  staffToken?: string
+): Promise<{ success: boolean; error?: string; ticket?: SupportTicket }> {
+  const localRes = updateTicketByStaff(isStaffAuthorized, ticketId, updates);
+  if (!localRes.success) return localRes;
+
+  const token = staffToken || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('tls_staff_token') : null);
+
+  // Try server staff endpoint first (central repository)
+  if (token) {
+    try {
+      const resp = await fetch(`/api/staff/tickets/${encodeURIComponent(ticketId)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success && data.ticket) {
+          return { success: true, ticket: data.ticket };
+        }
+      }
+    } catch (netErr) {
+      console.warn('[tickets] Server staff ticket update fetch warning:', netErr);
+    }
+  }
+
+  // Supabase fallback if configured
+  if (isSupabaseConfigured) {
+    try {
+      const { getSupabase } = await import('./supabase');
+      const client = getSupabase();
+      // Try RPC first
+      const { error: rpcErr } = await client.rpc('staff_update_ticket', {
+        p_ticket_id: ticketId,
+        p_status: updates.status,
+        p_priority: updates.priority,
+        p_staff_response: updates.staffResponse,
+        p_staff_notes: updates.staffNotes,
+      });
+
+      if (rpcErr) {
+        // Direct table update fallback
+        await client
+          .from('support_tickets')
+          .update({
+            ...(updates.status && { status: updates.status }),
+            ...(updates.priority && { priority: updates.priority }),
+            ...(updates.staffResponse !== undefined && { staff_response: updates.staffResponse }),
+            ...(updates.staffNotes !== undefined && { staff_notes: updates.staffNotes }),
+            ...(updates.staffCallSign && { resolved_by: updates.staffCallSign }),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', ticketId);
+      }
+    } catch (err) {
+      console.warn('[tickets] Supabase ticket update error:', err);
+    }
+  }
+
+  return localRes;
+}
+
 export async function submitPlayerTicketAsync(params: {
   user: PrototypeUser;
   subject: string;
@@ -283,6 +358,37 @@ export async function submitPlayerTicketAsync(params: {
   const localRes = submitPlayerTicket(params);
   if (!localRes.success) return localRes;
 
+  // 1. Submit to central server repository
+  try {
+    const res = await fetch('/api/tickets/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        callSign: params.user.callSign,
+        fullName: params.user.fullName,
+        studentClass: params.user.studentClass,
+        subject: params.subject,
+        category: params.category,
+        message: params.message,
+        priority: params.priority || 'NORMAL',
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.ticket) {
+        // Synchronize ID
+        if (localRes.ticket) {
+          localRes.ticket.id = data.ticket.id;
+        }
+        return { success: true, ticket: data.ticket };
+      }
+    }
+  } catch (srvErr) {
+    console.warn('[tickets] Server ticket submission warning, falling back:', srvErr);
+  }
+
+  // 2. Fallback to client-side Supabase if configured
   if (isSupabaseConfigured) {
     try {
       const { getSupabase } = await import('./supabase');
@@ -294,7 +400,26 @@ export async function submitPlayerTicketAsync(params: {
         p_priority: params.priority || 'NORMAL',
       });
       if (error) {
-        console.warn('[tickets] Supabase submit_ticket error, using local fallback:', error);
+        const authUser = (await client.auth.getUser()).data.user;
+        const { data: inserted } = await client
+          .from('support_tickets')
+          .insert({
+            user_id: authUser?.id,
+            call_sign: params.user.callSign,
+            full_name: params.user.fullName,
+            student_class: params.user.studentClass,
+            subject: params.subject.trim(),
+            category: params.category,
+            message: params.message.trim(),
+            priority: params.priority || 'NORMAL',
+            status: 'OPEN',
+          })
+          .select()
+          .maybeSingle();
+
+        if (inserted?.id && localRes.ticket) {
+          localRes.ticket.id = inserted.id;
+        }
       } else if (data?.ticket_id && localRes.ticket) {
         localRes.ticket.id = data.ticket_id;
       }
@@ -307,17 +432,56 @@ export async function submitPlayerTicketAsync(params: {
 }
 
 export async function getPlayerTicketsAsync(callSign: string): Promise<Omit<SupportTicket, 'staffNotes'>[]> {
+  if (!callSign) return [];
+
+  // 1. Try server endpoint first
+  try {
+    const res = await fetch(`/api/tickets/mine?callSign=${encodeURIComponent(callSign.trim())}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && Array.isArray(data.tickets) && data.tickets.length > 0) {
+        return data.tickets;
+      }
+    }
+  } catch (srvErr) {
+    console.warn('[tickets] Server tickets fetch warning, falling back:', srvErr);
+  }
+
+  // 2. Client-side Supabase fallback
   if (isSupabaseConfigured) {
     try {
       const { getSupabase } = await import('./supabase');
       const client = getSupabase();
       const { data, error } = await client.rpc('get_my_tickets');
-      if (!error && Array.isArray(data)) {
+      if (!error && Array.isArray(data) && data.length > 0) {
         return data.map((row: any) => ({
           id: row.id,
           callSign,
-          fullName: 'Investigator',
-          studentClass: 'Registered Operative',
+          fullName: row.full_name || 'Investigator',
+          studentClass: row.student_class || 'Registered Operative',
+          subject: row.subject,
+          category: row.category as TicketCategory,
+          message: row.message,
+          status: row.status as TicketStatus,
+          priority: row.priority as TicketPriority,
+          staffResponse: row.staff_response,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        }));
+      }
+
+      // Direct table select fallback
+      const { data: tableData, error: tableErr } = await client
+        .from('support_tickets')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!tableErr && Array.isArray(tableData) && tableData.length > 0) {
+        return tableData.map((row: any) => ({
+          id: row.id,
+          callSign: row.call_sign || callSign,
+          fullName: row.full_name || 'Investigator',
+          studentClass: row.student_class || 'Registered Operative',
           subject: row.subject,
           category: row.category as TicketCategory,
           message: row.message,
@@ -332,18 +496,56 @@ export async function getPlayerTicketsAsync(callSign: string): Promise<Omit<Supp
       console.warn('[tickets] Supabase get_my_tickets error, using local fallback:', err);
     }
   }
+
   return getPlayerTickets(callSign);
 }
 
-export async function getAllTicketsForStaffAsync(isStaffAuthorized: boolean): Promise<SupportTicket[]> {
+export async function getAllTicketsForStaffAsync(
+  isStaffAuthorized: boolean,
+  staffToken?: string
+): Promise<SupportTicket[]> {
   if (!isStaffAuthorized) return [];
+  const localTickets = getAllTicketsForStaff(isStaffAuthorized);
+
+  const token = staffToken || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('tls_staff_token') : null);
+
+  // 1. Fetch from central server shared staff inbox
+  if (token) {
+    try {
+      const res = await fetch('/api/staff/tickets', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.tickets)) {
+          // Merge server tickets with local store
+          const map = new Map<string, SupportTicket>();
+          localTickets.forEach((t) => map.set(t.id, t));
+          data.tickets.forEach((t: SupportTicket) => map.set(t.id, t));
+          const merged = Array.from(map.values()).sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          writeAllTicketsToStorage(merged);
+          return merged;
+        }
+      }
+    } catch (srvErr) {
+      console.warn('[tickets] Server staff tickets fetch warning:', srvErr);
+    }
+  }
+
+  // 2. Client-side Supabase fallback
   if (isSupabaseConfigured) {
     try {
       const { getSupabase } = await import('./supabase');
       const client = getSupabase();
       const { data, error } = await client.rpc('staff_get_all_tickets');
+      let remoteTickets: SupportTicket[] = [];
+
       if (!error && Array.isArray(data)) {
-        return data.map((row: any) => ({
+        remoteTickets = data.map((row: any) => ({
           id: row.id,
           callSign: row.call_sign,
           fullName: row.full_name,
@@ -359,12 +561,46 @@ export async function getAllTicketsForStaffAsync(isStaffAuthorized: boolean): Pr
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         }));
+      } else {
+        const { data: tableData, error: tblErr } = await client
+          .from('support_tickets')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!tblErr && Array.isArray(tableData)) {
+          remoteTickets = tableData.map((row: any) => ({
+            id: row.id,
+            callSign: row.call_sign,
+            fullName: row.full_name,
+            studentClass: row.student_class,
+            subject: row.subject,
+            category: row.category as TicketCategory,
+            message: row.message,
+            status: row.status as TicketStatus,
+            priority: row.priority as TicketPriority,
+            staffResponse: row.staff_response,
+            staffNotes: row.staff_notes,
+            resolvedBy: row.resolved_by,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+          }));
+        }
+      }
+
+      if (remoteTickets.length > 0) {
+        const map = new Map<string, SupportTicket>();
+        localTickets.forEach((t) => map.set(t.id, t));
+        remoteTickets.forEach((t) => map.set(t.id, t));
+        return Array.from(map.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
       }
     } catch (err) {
       console.warn('[tickets] Supabase staff_get_all_tickets error, using local fallback:', err);
     }
   }
-  return getAllTicketsForStaff(isStaffAuthorized);
+
+  return localTickets;
 }
 
 /**

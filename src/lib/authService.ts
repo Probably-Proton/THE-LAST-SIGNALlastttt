@@ -379,8 +379,12 @@ export async function loginUser(
 
       // Verify individual stage-access override from Supabase participant_stage_overrides table
       const hasStageOverride = await verifyParticipantStageOverride();
+      const userEmail = (data.user.email || '').toLowerCase().trim();
+      const isDeveloperAccount = userEmail === 'rudrapratapf.0562@gmail.com';
       const excludeFromLeaderboard =
         Boolean(isStaff) ||
+        Boolean(hasStageOverride) ||
+        isDeveloperAccount ||
         (await verifyParticipantLeaderboardExclusion(data.user.id)) ||
         Boolean((profile as { exclude_from_leaderboard?: boolean })?.exclude_from_leaderboard);
 
@@ -561,8 +565,12 @@ export async function restoreSession(): Promise<PrototypeUser | null> {
 
         // Verify individual stage-access override from Supabase participant_stage_overrides
         const hasStageOverride = await verifyParticipantStageOverride();
+        const sessionUserEmail = (data.session.user.email || '').toLowerCase().trim();
+        const isDeveloperAccount = sessionUserEmail === 'rudrapratapf.0562@gmail.com';
         const excludeFromLeaderboard =
           Boolean(isStaff) ||
+          Boolean(hasStageOverride) ||
+          isDeveloperAccount ||
           (await verifyParticipantLeaderboardExclusion(data.session.user.id)) ||
           Boolean((profile as { exclude_from_leaderboard?: boolean })?.exclude_from_leaderboard);
 

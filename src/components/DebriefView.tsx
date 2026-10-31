@@ -51,6 +51,7 @@ import {
   type StageScoreBreakdown,
 } from '@/src/lib/stageConfig';
 import type { PrototypeUser, UserProgress } from '@/src/lib/prototypeAuth';
+import { ControlledSystemGlitch } from './ControlledSystemGlitch';
 
 interface DebriefViewProps {
   user: PrototypeUser;
@@ -81,6 +82,8 @@ export function DebriefView({
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isNearFullscreen, setIsNearFullscreen] = useState(false);
+  const [isTrueFullscreenOverlay, setIsTrueFullscreenOverlay] = useState(false);
+  const [isGlitching, setIsGlitching] = useState(false);
 
   const isExpanded = isFullscreen || isNearFullscreen;
 
@@ -89,6 +92,9 @@ export function DebriefView({
     const handleFullscreenChange = () => {
       const active = Boolean(document.fullscreenElement);
       setIsFullscreen(active);
+      if (!active) {
+        setIsTrueFullscreenOverlay(false);
+      }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
@@ -138,26 +144,32 @@ export function DebriefView({
   const handlePlayEndingFullscreen = async () => {
     tacticalAudio.playButtonClick();
     tacticalAudio.setLocationProfile('ending');
-    const elem = videoContainerRef.current;
-    if (videoElemRef.current) {
+    const videoElem = videoElemRef.current;
+    if (videoElem) {
       try {
-        await videoElemRef.current.play();
+        await videoElem.play();
         setIsVideoPlaying(true);
       } catch (e) {
         console.warn('Playback error:', e);
       }
-    }
-    if (elem) {
       try {
-        if (elem.requestFullscreen) {
-          await elem.requestFullscreen();
+        if (videoElem.requestFullscreen) {
+          await videoElem.requestFullscreen();
+          setIsFullscreen(true);
+        } else if ((videoElem as unknown as { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen) {
+          await (videoElem as unknown as { webkitRequestFullscreen: () => Promise<void> }).webkitRequestFullscreen();
+          setIsFullscreen(true);
+        } else if ((videoElem as unknown as { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen) {
+          (videoElem as unknown as { webkitEnterFullscreen: () => void }).webkitEnterFullscreen();
           setIsFullscreen(true);
         } else {
-          setIsNearFullscreen(true);
+          setIsTrueFullscreenOverlay(true);
         }
       } catch {
-        setIsNearFullscreen(true);
+        setIsTrueFullscreenOverlay(true);
       }
+    } else {
+      setIsTrueFullscreenOverlay(true);
     }
   };
 
@@ -168,6 +180,31 @@ export function DebriefView({
     }
     setIsFullscreen(false);
     setIsNearFullscreen(false);
+    setIsTrueFullscreenOverlay(false);
+  };
+
+  const handleVideoEnded = () => {
+    setIsVideoPlaying(false);
+    tacticalAudio.setLocationProfile('ending');
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    setIsFullscreen(false);
+    setIsNearFullscreen(false);
+    setIsTrueFullscreenOverlay(false);
+    // Trigger the glitch sequence
+    setIsGlitching(true);
+  };
+
+  const handleTriggerFinalize = () => {
+    tacticalAudio.playButtonClick();
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    setIsFullscreen(false);
+    setIsNearFullscreen(false);
+    setIsTrueFullscreenOverlay(false);
+    setIsGlitching(true);
   };
 
   // Step 1: Confirm reading Chronicle article
@@ -182,7 +219,7 @@ export function DebriefView({
     setActiveTab('ending_video');
   };
 
-  // Step 2 & 3: Finalize Case after Ending Video
+  // Step 2 & 3: Finalize Case after Ending Video & Glitch
   const handleFinalizeCase = () => {
     tacticalAudio.playSuccess();
     const nowIso = new Date().toISOString();
@@ -213,6 +250,8 @@ export function DebriefView({
           },
           score: totalScore,
           tasksCompleted: prev.tasksCompleted + 1,
+          endingCorruptedAftermath: true,
+          aftermathDismissed: false,
         };
       });
     }
@@ -484,10 +523,7 @@ export function DebriefView({
                   setIsVideoPlaying(false);
                   tacticalAudio.setLocationProfile('ending');
                 }}
-                onEnded={() => {
-                  setIsVideoPlaying(false);
-                  tacticalAudio.setLocationProfile('ending');
-                }}
+                onEnded={handleVideoEnded}
                 className="w-full h-full object-contain bg-black"
               >
                 <source src="/assets/FINAL_REVIEW.mp4" type="video/mp4" />
@@ -584,7 +620,7 @@ export function DebriefView({
 
                 <button
                   type="button"
-                  onClick={handleFinalizeCase}
+                  onClick={handleTriggerFinalize}
                   className="button bg-emerald-800 hover:bg-emerald-700 text-white border border-emerald-600 py-2 px-5 font-mono text-xs font-bold tracking-wider shadow-lg flex items-center gap-2 cursor-pointer"
                 >
                   <Award size={14} />
@@ -714,6 +750,41 @@ export function DebriefView({
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Controlled System Glitch Sequence */}
+      <ControlledSystemGlitch
+        isActive={isGlitching}
+        reducedScareMode={progress.reducedScareMode}
+        onComplete={() => {
+          setIsGlitching(false);
+          handleFinalizeCase();
+        }}
+        onDismiss={() => {
+          setIsGlitching(false);
+          handleFinalizeCase();
+        }}
+      />
+
+      {/* True Edge-to-Edge Fullscreen Fallback Overlay */}
+      {isTrueFullscreenOverlay && (
+        <div className="fixed inset-0 z-[999998] bg-black flex items-center justify-center m-0 p-0 overflow-hidden">
+          <video
+            src="/assets/FINAL_REVIEW.mp4"
+            autoPlay
+            playsInline
+            controls
+            onEnded={handleVideoEnded}
+            className="w-full h-full object-contain bg-black"
+          />
+          <button
+            type="button"
+            onClick={handleExitFullscreen}
+            className="absolute top-4 right-4 z-[999999] bg-black/75 hover:bg-black text-white/90 hover:text-white px-3 py-1.5 border border-white/25 text-xs font-mono flex items-center gap-1.5 cursor-pointer backdrop-blur-sm shadow-xl"
+          >
+            <Minimize2 size={14} />
+            <span>EXIT FULLSCREEN</span>
+          </button>
         </div>
       )}
     </div>

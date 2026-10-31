@@ -967,46 +967,158 @@ class TacticalAudioController {
   }
 
   /**
-   * Sharp, high-pitched electronic sound lasting approximately 0.5 seconds.
-   * Synthesizes authentic high-frequency carrier interference (~3000Hz)
-   * with calibrated volume and smooth micro-fade envelope.
+   * Layered cinematic digital corruption soundscape for system failure:
+   * - Distorted transmission noise
+   * - Digital clipping and broken audio bursts
+   * - Short static interruptions and micro-dropouts
+   * - Glitching electronic carrier tones
+   * - Abrupt silence
    */
-  public playGlitchHighBurst(duration = 0.5): void {
+  public playLayeredDigitalCorruption(duration = 0.55, intensity = 0.8): void {
     if (this.sfxMuted) return;
     this.resumeContext();
     if (!this.ctx || !this.sfxGain) return;
 
     try {
       const t = this.ctx.currentTime;
-      const dur = Math.max(0.35, Math.min(0.65, duration));
+      const dur = Math.max(0.40, Math.min(0.85, duration));
 
-      const osc1 = this.ctx.createOscillator();
-      const osc2 = this.ctx.createOscillator();
+      // 1. Distorted Carrier Oscillator (Harmonic collapse & pitch drop)
+      const carrier = this.ctx.createOscillator();
+      const subOsc = this.ctx.createOscillator();
+      carrier.type = 'sawtooth';
+      carrier.frequency.setValueAtTime(1420 + Math.random() * 400, t);
+      carrier.frequency.exponentialRampToValueAtTime(320 + Math.random() * 120, t + dur * 0.7);
+      carrier.frequency.linearRampToValueAtTime(110, t + dur);
+
+      subOsc.type = 'square';
+      subOsc.frequency.setValueAtTime(240, t);
+      subOsc.frequency.linearRampToValueAtTime(95, t + dur);
+
+      // 2. Waveshaper for authentic digital clipping distortion
+      const shaper = this.ctx.createWaveShaper();
+      const n_samples = 256;
+      const curve = new Float32Array(n_samples);
+      const k = 18 * intensity;
+      for (let i = 0; i < n_samples; ++i) {
+        const x = (i * 2) / n_samples - 1;
+        curve[i] = ((3 + k) * x * 20 * (Math.PI / 180)) / (Math.PI + k * Math.abs(x));
+      }
+      shaper.curve = curve;
+      shaper.oversample = '2x';
+
+      // 3. Broken Static Burst (Granular impulse noise)
+      const bufferSize = Math.floor(this.ctx.sampleRate * dur);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        const isDropout = Math.sin(i * 0.08) > 0.7;
+        data[i] = isDropout ? 0 : (Math.random() * 2 - 1) * (0.25 + intensity * 0.15);
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const noiseFilter = this.ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(2800 + Math.random() * 1000, t);
+      noiseFilter.Q.setValueAtTime(2.2, t);
+
+      // 4. Stutter Gating (Simulating packet loss and broken transmission bursts)
+      const masterGain = this.ctx.createGain();
+      masterGain.gain.setValueAtTime(0.001, t);
+      masterGain.gain.linearRampToValueAtTime(0.18 * intensity, t + 0.015);
+      masterGain.gain.setValueAtTime(0.18 * intensity, t + dur * 0.3);
+      masterGain.gain.setValueAtTime(0.001, t + dur * 0.32);
+      masterGain.gain.setValueAtTime(0.20 * intensity, t + dur * 0.35);
+      masterGain.gain.setValueAtTime(0.001, t + dur * 0.62);
+      masterGain.gain.setValueAtTime(0.16 * intensity, t + dur * 0.65);
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+      carrier.connect(shaper);
+      subOsc.connect(shaper);
+      shaper.connect(masterGain);
+
+      noise.connect(noiseFilter);
+      noiseFilter.connect(masterGain);
+
+      masterGain.connect(this.sfxGain);
+
+      let stopped = false;
+      const stopNode = () => {
+        if (stopped) return;
+        stopped = true;
+        try {
+          masterGain.gain.cancelScheduledValues(0);
+          masterGain.gain.setValueAtTime(0.0001, this.ctx?.currentTime ?? 0);
+          carrier.stop();
+          subOsc.stop();
+          noise.stop();
+          carrier.disconnect();
+          subOsc.disconnect();
+          noise.disconnect();
+        } catch {
+          // Handled
+        }
+      };
+
+      const tracked = { stop: stopNode };
+      this.activeGlitchNodes.push(tracked);
+
+      carrier.start(t);
+      subOsc.start(t);
+      noise.start(t);
+      carrier.stop(t + dur);
+      subOsc.stop(t + dur);
+      noise.stop(t + dur);
+
+      setTimeout(() => {
+        const idx = this.activeGlitchNodes.indexOf(tracked);
+        if (idx !== -1) {
+          this.activeGlitchNodes.splice(idx, 1);
+        }
+      }, (dur + 0.1) * 1000);
+    } catch {
+      // Audio fallback
+    }
+  }
+
+  /**
+   * Final interrupted transmission sound:
+   * Power collapse, digital carrier dying mid-cycle, followed by absolute silence.
+   */
+  public playFinalInterruptedTransmission(): void {
+    if (this.sfxMuted) return;
+    this.resumeContext();
+    if (!this.ctx || !this.sfxGain) return;
+
+    try {
+      const t = this.ctx.currentTime;
+      const dur = 0.75;
+
+      const osc = this.ctx.createOscillator();
+      const popOsc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       const filter = this.ctx.createBiquadFilter();
 
-      // Sharp high-pitched electronic tone with slight frequency modulation (2950Hz - 3200Hz)
-      osc1.type = 'sawtooth';
-      osc1.frequency.setValueAtTime(3020, t);
-      osc1.frequency.linearRampToValueAtTime(3180, t + dur * 0.4);
-      osc1.frequency.linearRampToValueAtTime(2960, t + dur);
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(840, t);
+      osc.frequency.exponentialRampToValueAtTime(45, t + dur * 0.85);
 
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(3120, t);
-      osc2.frequency.linearRampToValueAtTime(3040, t + dur);
+      popOsc.type = 'square';
+      popOsc.frequency.setValueAtTime(60, t + dur * 0.84);
 
-      filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(3100, t);
-      filter.Q.setValueAtTime(3.5, t);
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(3200, t);
+      filter.frequency.linearRampToValueAtTime(180, t + dur * 0.85);
 
-      // Controlled volume envelope: sharp fast attack, hold, quick smooth fadeout
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.linearRampToValueAtTime(0.14, t + 0.008);
-      gain.gain.setValueAtTime(0.14, t + dur - 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.24, t + 0.02);
+      gain.gain.setValueAtTime(0.18, t + dur * 0.8);
+      gain.gain.setValueAtTime(0.35, t + dur * 0.85);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.88);
 
-      osc1.connect(filter);
-      osc2.connect(filter);
+      osc.connect(filter);
+      popOsc.connect(filter);
       filter.connect(gain);
       gain.connect(this.sfxGain);
 
@@ -1017,32 +1129,36 @@ class TacticalAudioController {
         try {
           gain.gain.cancelScheduledValues(0);
           gain.gain.setValueAtTime(0.0001, this.ctx?.currentTime ?? 0);
-          osc1.stop();
-          osc2.stop();
-          osc1.disconnect();
-          osc2.disconnect();
-        } catch {
-          // Handled
-        }
+          osc.stop();
+          popOsc.stop();
+          osc.disconnect();
+          popOsc.disconnect();
+        } catch {}
       };
 
       const tracked = { stop: stopNode };
       this.activeGlitchNodes.push(tracked);
 
-      osc1.start(t);
-      osc2.start(t);
-      osc1.stop(t + dur);
-      osc2.stop(t + dur);
+      osc.start(t);
+      popOsc.start(t + dur * 0.84);
+      osc.stop(t + dur * 0.9);
+      popOsc.stop(t + dur * 0.9);
 
       setTimeout(() => {
         const idx = this.activeGlitchNodes.indexOf(tracked);
         if (idx !== -1) {
           this.activeGlitchNodes.splice(idx, 1);
         }
-      }, (dur + 0.08) * 1000);
-    } catch {
-      // Fallback
-    }
+      }, (dur + 0.15) * 1000);
+    } catch {}
+  }
+
+  /**
+   * Sharp, high-pitched electronic sound lasting approximately 0.5 seconds.
+   * Synthesizes authentic layered transmission interference.
+   */
+  public playGlitchHighBurst(duration = 0.5): void {
+    this.playLayeredDigitalCorruption(duration, 0.85);
   }
 
   /**
